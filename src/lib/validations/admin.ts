@@ -26,7 +26,8 @@ export const bannerFormSchema = z.object({
   endDate: z.string().datetime().nullable().optional(),
   displayOrder: z.coerce.number().int().default(0),
 });
-export type BannerFormInput = z.infer<typeof bannerFormSchema>;
+export type BannerFormInput = z.output<typeof bannerFormSchema>;
+export type BannerFormRawInput = z.input<typeof bannerFormSchema>;
 
 export const faqFormSchema = z.object({
   question: z.string().trim().min(3).max(300),
@@ -34,7 +35,8 @@ export const faqFormSchema = z.object({
   isActive: z.boolean().default(true),
   displayOrder: z.coerce.number().int().default(0),
 });
-export type FaqFormInput = z.infer<typeof faqFormSchema>;
+export type FaqFormInput = z.output<typeof faqFormSchema>;
+export type FaqFormRawInput = z.input<typeof faqFormSchema>;
 
 export const contactFormSchema = z.object({
   name: z.string().trim().min(2, "Enter your name").max(150),
@@ -56,7 +58,17 @@ export const siteSettingsFormSchema = z.object({
   currencyCode: z.string().trim().length(3),
   darkModeEnabled: z.boolean(),
 });
-export type SiteSettingsFormInput = z.infer<typeof siteSettingsFormSchema>;
+export type SiteSettingsFormInput = z.output<typeof siteSettingsFormSchema>;
+export type SiteSettingsFormRawInput = z.input<typeof siteSettingsFormSchema>;
+
+export const adminSettingsFormSchema = z.object({
+  invoicePrefix: z.string().trim().min(1).max(20),
+  orderAutoCancelUnconfirmedHours: z.coerce.number().int().min(1).max(720),
+  notifyAdminOnNewOrder: z.boolean(),
+  notifyAdminOnPaymentSubmitted: z.boolean(),
+});
+export type AdminSettingsFormInput = z.output<typeof adminSettingsFormSchema>;
+export type AdminSettingsFormRawInput = z.input<typeof adminSettingsFormSchema>;
 
 export const sendNotificationSchema = z.object({
   recipientType: z.enum(["single", "selected", "all"]),

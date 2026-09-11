@@ -3,17 +3,26 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, Package, Tags, ShoppingCart, CreditCard, Landmark, Settings } from "lucide-react";
+import {
+  LayoutDashboard,
+  Package,
+  Tags,
+  ShoppingCart,
+  CreditCard,
+  Landmark,
+  Settings,
+  Users,
+  Star,
+  Bell,
+  Image as ImageIcon,
+  Mail,
+  HelpCircle,
+} from "lucide-react";
 import { signOutAction } from "@/lib/auth/actions";
 import { Button } from "@/components/ui/button";
 
-/**
- * Grows as each admin section ships (Customers/Reviews/Banners/Reports/
- * Notifications/Contact/FAQs in Phase 11) — intentionally short right now
- * rather than linking to pages that don't exist yet. Categories is
- * deliberately not here (not in the spec's sidebar list) — it's reachable
- * from the Products page instead.
- */
+// Categories is deliberately not here (not in the spec's sidebar list) —
+// it's reachable from the Products page instead.
 const links = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/products", label: "Products", icon: Package },
@@ -21,6 +30,12 @@ const links = [
   { href: "/admin/orders", label: "Orders", icon: ShoppingCart },
   { href: "/admin/payments", label: "Payments", icon: CreditCard },
   { href: "/admin/payment-methods", label: "Payment Methods", icon: Landmark },
+  { href: "/admin/customers", label: "Customers", icon: Users },
+  { href: "/admin/reviews", label: "Reviews", icon: Star },
+  { href: "/admin/banners", label: "Banners", icon: ImageIcon },
+  { href: "/admin/faqs", label: "FAQs", icon: HelpCircle },
+  { href: "/admin/contact", label: "Contact Messages", icon: Mail },
+  { href: "/admin/notifications", label: "Notifications", icon: Bell },
   { href: "/admin/settings", label: "Settings", icon: Settings },
 ] as const;
 

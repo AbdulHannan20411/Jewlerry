@@ -10,8 +10,10 @@ import {
   paymentRejectedEmail,
   newOrderAdminAlertEmail,
   newPaymentAdminAlertEmail,
+  accountBlockedEmail,
 } from "@/lib/email/templates";
 import { createNotification, createNotificationsForUsers, getAdminRecipients } from "@/lib/notifications/mutations";
+import { getAdminSettingsWith } from "@/lib/settings/queries";
 
 /**
  * The single integration point between the order/payment business logic
@@ -41,7 +43,8 @@ export async function notifyOrderCreated(
   },
 ): Promise<void> {
   const { subject, html } = orderConfirmationEmail(params);
-  const admins = await getAdminRecipients(supabase);
+  const adminSettings = await getAdminSettingsWith(supabase);
+  const admins = adminSettings?.notify_admin_on_new_order !== false ? await getAdminRecipients(supabase) : [];
   const adminEmail = newOrderAdminAlertEmail(params);
 
   await Promise.all([
@@ -98,7 +101,8 @@ export async function notifyPaymentSubmitted(
   },
 ): Promise<void> {
   const { subject, html } = paymentSubmittedEmail(params);
-  const admins = await getAdminRecipients(supabase);
+  const adminSettings = await getAdminSettingsWith(supabase);
+  const admins = adminSettings?.notify_admin_on_payment_submitted !== false ? await getAdminRecipients(supabase) : [];
   const adminEmail = newPaymentAdminAlertEmail(params);
 
   await Promise.all([
@@ -141,6 +145,22 @@ export async function notifyPaymentApproved(
       title: "Payment confirmed",
       message: `Your payment for order ${params.orderNumber} has been confirmed.`,
       type: "payment",
+    }),
+    sendEmail({ to: params.customerEmail, subject, html }),
+  ]);
+}
+
+export async function notifyCustomerBlocked(
+  supabase: SupabaseClient<Database>,
+  params: { customerId: string; customerEmail: string; reason: string },
+): Promise<void> {
+  const { subject, html } = accountBlockedEmail(params);
+  await Promise.all([
+    createNotification(supabase, {
+      userId: params.customerId,
+      title: "Account suspended",
+      message: `Your account has been suspended: ${params.reason}.`,
+      type: "system",
     }),
     sendEmail({ to: params.customerEmail, subject, html }),
   ]);

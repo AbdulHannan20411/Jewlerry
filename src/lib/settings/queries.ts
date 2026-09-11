@@ -1,6 +1,8 @@
 import "server-only";
 import { cache } from "react";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import type { Database } from "@/types/database";
 
 /**
  * site_settings is a singleton row read by the root layout (dark mode
@@ -16,4 +18,27 @@ export const getSiteSettings = cache(async () => {
     return null;
   }
   return data;
+});
+
+/**
+ * admin_settings is admin-only (RLS). This variant takes an explicit
+ * client so it also works from `lib/notifications/events.ts`, which is
+ * called from customer-triggered actions (order/payment) using the
+ * service-role client — a customer's own session could never read this
+ * table via RLS, so the caller here must be service-role, not cached
+ * per-request the way the admin-page variant below is.
+ */
+export async function getAdminSettingsWith(supabase: SupabaseClient<Database>) {
+  const { data, error } = await supabase.from("admin_settings").select("*").single();
+  if (error) {
+    console.error("[getAdminSettingsWith] failed:", error);
+    return null;
+  }
+  return data;
+}
+
+/** Session-scoped + cached — for admin pages only (never the public layout/header). */
+export const getAdminSettings = cache(async () => {
+  const supabase = await createServerSupabaseClient();
+  return getAdminSettingsWith(supabase);
 });

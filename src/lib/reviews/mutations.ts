@@ -62,3 +62,10 @@ export async function deleteReview(supabase: SupabaseClient<Database>, reviewId:
   if (!data) return { ok: false as const, error: "Review not found." };
   return { ok: true as const };
 }
+
+/** Admin moderation — protect_review_columns lets an admin toggle only is_hidden, never rewrite the customer's content. */
+export async function setReviewHidden(supabase: SupabaseClient<Database>, reviewId: number, isHidden: boolean) {
+  const { error } = await supabase.from("reviews").update({ is_hidden: isHidden }).eq("id", reviewId);
+  if (error) return { ok: false as const, error: "Could not update this review." };
+  return { ok: true as const };
+}

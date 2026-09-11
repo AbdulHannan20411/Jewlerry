@@ -1,5 +1,6 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { DEFAULT_PAGE_SIZE } from "@/constants";
 import type { Database } from "@/types/database";
 
 export interface ProductReview {
@@ -201,4 +202,81 @@ export async function getCustomerReviews(
       productImageUrl: images[0]?.url ?? null,
     };
   });
+}
+
+export interface AdminReviewListItem {
+  id: number;
+  productId: number;
+  productName: string;
+  customerName: string;
+  rating: number;
+  title: string;
+  comment: string;
+  isHidden: boolean;
+  createdAt: string;
+}
+
+export interface AdminReviewListResult {
+  items: AdminReviewListItem[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+  pageCount: number;
+}
+
+/** Admin moderation list — every review including hidden ones, with product name + real customer name (admin bypasses profiles RLS). */
+export async function searchAllReviews(
+  supabase: SupabaseClient<Database>,
+  filters: { visibility?: "visible" | "hidden"; page?: number; pageSize?: number } = {},
+): Promise<AdminReviewListResult> {
+  const page = filters.page ?? 1;
+  const pageSize = filters.pageSize ?? DEFAULT_PAGE_SIZE;
+  const from = (page - 1) * pageSize;
+
+  let query = supabase
+    .from("reviews")
+    .select(
+      "id, product_id, rating, title, comment, is_hidden, created_at, products(name), profiles(full_name)",
+      { count: "exact" },
+    )
+    .order("created_at", { ascending: false });
+  if (filters.visibility === "hidden") query = query.eq("is_hidden", true);
+  if (filters.visibility === "visible") query = query.eq("is_hidden", false);
+
+  const { data, count, error } = await query.range(from, from + pageSize - 1);
+  if (error || !data) {
+    if (error) console.error("[searchAllReviews] failed:", error);
+    return { items: [], totalCount: 0, page, pageSize, pageCount: 1 };
+  }
+
+  const totalCount = count ?? 0;
+  const rows = data as unknown as {
+    id: number;
+    product_id: number;
+    rating: number;
+    title: string;
+    comment: string;
+    is_hidden: boolean;
+    created_at: string;
+    products: { name: string } | null;
+    profiles: { full_name: string } | null;
+  }[];
+
+  return {
+    items: rows.map((row) => ({
+      id: row.id,
+      productId: row.product_id,
+      productName: row.products?.name ?? "Product",
+      customerName: row.profiles?.full_name ?? "Customer",
+      rating: row.rating,
+      title: row.title,
+      comment: row.comment,
+      isHidden: row.is_hidden,
+      createdAt: row.created_at,
+    })),
+    totalCount,
+    page,
+    pageSize,
+    pageCount: Math.max(1, Math.ceil(totalCount / pageSize)),
+  };
 }

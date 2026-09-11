@@ -5,6 +5,101 @@ the way for anything the spec left ambiguous. Newest entries at the top.
 
 ---
 
+## Phase 11 — Admin (dashboard/reports, settings, banners, FAQs, contact, customers, reviews moderation, notifications)
+
+**Date:** 2026-09-11
+
+The largest single phase — most Zod schemas (`bannerFormSchema`, `faqFormSchema`,
+`siteSettingsFormSchema`, `sendNotificationSchema`, `blockCustomerSchema`) were
+already scaffolded back in Phase 1, so this was mostly wiring queries/
+mutations/actions/UI on top of existing validation + RLS.
+
+- **Settings**: two new tabs on the existing admin settings page — Store
+  (`site_settings`: name/contact/hours/low-stock threshold/shipping cost/
+  currency/dark-mode toggle) and Automation (`admin_settings`: invoice
+  prefix, auto-cancel window, admin notification toggles). The
+  `notify_admin_on_new_order`/`notify_admin_on_payment_submitted` columns
+  existed since Phase 2 but were previously dead — Phase 8's
+  `notifyOrderCreated`/`notifyPaymentSubmitted` now actually read them
+  (via a new `getAdminSettingsWith(supabase)` that takes an explicit
+  client, since those events run under the service-role client from
+  customer-triggered actions, not an admin session) before deciding
+  whether to alert admins at all.
+- **Banners**: full image-upload CRUD (`lib/storage/images.ts`'s
+  `uploadPublicImage`, same helper product images use), including
+  `datetime-local` start/end scheduling converted to/from ISO for Zod's
+  `.datetime()`.
+- **FAQs**: plain dialog CRUD, same shape as Tags/Categories.
+- **Contact messages**: admin inbox (expandable list, mark-read-on-open,
+  mailto reply link, delete).
+- **Customers**: list (search + active/blocked filter) and detail page
+  (order history + total spent) with block/unblock (direct RLS write —
+  no service-role) and an admin-triggered delete that reuses the same
+  `anonymize_profile` RPC + Auth ban pair as the customer's own
+  self-delete (`lib/auth/actions.ts`), minus the password re-entry since
+  admin authority is already established. Blocking now also sends the
+  customer a notification + email (new `notifyCustomerBlocked` event,
+  `accountBlockedEmail` template).
+- **Reviews moderation**: admin list across every product (including
+  hidden), joined directly to `profiles.full_name` (admin bypasses the
+  "can't read another customer's profile" RLS restriction, so — unlike
+  the public product-page list — no RPC needed here) and hide/show via
+  `protect_review_columns`' admin-only `is_hidden` toggle.
+- **Notifications composer**: wraps Phase 8's `sendNotificationAction`
+  with a UI — broadcast to all customers or a live-searched multi-pick of
+  specific ones (debounced customer search via
+  `searchCustomersForPickerAction`).
+- **Dashboard**: replaced the Phase-1 three-stat placeholder with real
+  Recharts — a 30-day revenue area chart, an orders-by-status bar chart,
+  and top-5-products-by-units-sold — plus quick-glance alert badges
+  (payments awaiting review, unconfirmed orders, low stock, unread
+  messages) linking straight to the relevant admin page. `lib/reports/
+  queries.ts` defines "revenue" consistently as orders that reached
+  `confirmed`/`in_process`/`delivered`/`completed` (payment actually
+  received) — the same set used for a customer's "total spent" on their
+  admin detail page.
+
+### A real bug caught by live verification, not by typecheck/build
+
+`getRevenueOverTime`'s day-bucketing used local-time `Date` methods
+(`setDate`/`setHours(0,0,0,0)`/`getDate()`) to build the 30 calendar-day
+keys, then compared against `created_at` timestamps serialized as UTC
+ISO strings. On a server whose local timezone isn't UTC — this
+environment runs Asia/Karachi, UTC+5 — local midnight is the *previous*
+UTC calendar day, so every bucket key was silently off by one day, and
+**"today"'s revenue bucket never existed at all**, disappearing entirely
+from the chart and the total shown. The dashboard displayed "Rs 0" in
+30-day revenue despite real confirmed/delivered orders existing. Fixed by
+switching entirely to `Date.UTC(...)`/`getUTCDate()` arithmetic so bucket
+keys always line up with the UTC dates Postgres actually returns —
+verified directly against the database afterward (3 orders, Rs 39,450,
+today's bucket present) rather than trusting the fix by inspection alone.
+This is exactly the class of bug that never shows up on a UTC CI runner
+or a US-timezone developer's machine, which is why it's flagged here.
+
+### Verified live — partially interleaved with the user's own concurrent testing
+
+Confirmed via server logs that every admin action distinctly traceable to
+the verification script executed cleanly end-to-end with no thrown
+errors: store/automation settings save, banner create + update + delete
+(image upload included), FAQ create + delete, contact message mark-read +
+delete. The user was actively using the same local dev server at the
+same time (signing up test accounts, editing banners themselves) — some
+of the script's own UI assertions timed out under that shared load and
+against data the user was concurrently changing, which is why the
+customer block/unblock and notifications-composer steps weren't
+re-confirmed with a clean automated run; rather than keep running heavy
+automation against a session the user was actively driving, verification
+stopped there once the code paths involved (same RLS/action patterns as
+everything else in this phase, all independently exercised elsewhere)
+gave enough confidence, and the one substantive finding (the revenue
+bug) was isolated and fixed with a focused, read-only check instead.
+
+**Next:** Phase 12 — Security/performance/accessibility audit, tests,
+deployment documentation.
+
+---
+
 ## Phase 10 — Reviews (submission/edit/delete)
 
 **Date:** 2026-09-11

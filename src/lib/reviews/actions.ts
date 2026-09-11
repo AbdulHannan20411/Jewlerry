@@ -1,9 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireUser } from "@/lib/permissions";
+import { requireUser, requireAdmin } from "@/lib/permissions";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { createReview, updateReview, deleteReview } from "@/lib/reviews/mutations";
+import { createReview, updateReview, deleteReview, setReviewHidden } from "@/lib/reviews/mutations";
+import { writeAuditLog } from "@/lib/audit";
 import { reviewFormSchema, updateReviewSchema, type ReviewFormInput, type UpdateReviewInput } from "@/lib/validations/reviews";
 import { actionOk, actionError, type ActionResult } from "@/lib/action-result";
 
@@ -65,5 +66,22 @@ export async function deleteReviewAction(reviewId: number): Promise<ActionResult
   if (!result.ok) return actionError(result.error);
 
   revalidatePath("/account/reviews");
+  return actionOk(undefined);
+}
+
+export async function toggleReviewHiddenAction(reviewId: number, isHidden: boolean): Promise<ActionResult> {
+  const admin = await requireAdmin();
+  const supabase = await createServerSupabaseClient();
+  const result = await setReviewHidden(supabase, reviewId, isHidden);
+  if (!result.ok) return actionError(result.error);
+
+  await writeAuditLog({
+    actorId: admin.id,
+    action: isHidden ? "review.hidden" : "review.unhidden",
+    entityType: "reviews",
+    entityId: reviewId,
+  });
+
+  revalidatePath("/admin/reviews");
   return actionOk(undefined);
 }

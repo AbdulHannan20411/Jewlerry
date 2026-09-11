@@ -24,3 +24,13 @@ export async function getActiveBanners(supabase: SupabaseClient<Database>) {
   }
   return data;
 }
+
+/** Admin list — every banner regardless of active/date-window state. */
+export async function getAllBanners(supabase: SupabaseClient<Database>) {
+  const { data, error } = await supabase.from("banners").select("*").order("display_order");
+  if (error) {
+    console.error("[getAllBanners] failed:", error);
+    return [];
+  }
+  return data;
+}

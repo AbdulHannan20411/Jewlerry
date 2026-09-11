@@ -166,6 +166,17 @@ export function newPaymentAdminAlertEmail(params: {
   return { subject, html };
 }
 
+export function accountBlockedEmail(params: { reason: string }) {
+  const subject = "Your account has been suspended";
+  const html = layout(
+    "Account suspended",
+    `<p>Your ${BRAND} account has been suspended by an administrator.</p>
+     <p><strong>Reason:</strong> ${params.reason}</p>
+     <p>If you believe this is a mistake, please contact us for help.</p>`,
+  );
+  return { subject, html };
+}
+
 export function genericNotificationEmail(params: { title: string; message: string; ctaUrl?: string; ctaLabel?: string }) {
   const html = layout(
     params.title,

@@ -1,7 +1,11 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { contactFormSchema, type ContactFormInput } from "@/lib/validations/admin";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
+import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { requireAdmin } from "@/lib/permissions";
+import { markContactMessageRead, deleteContactMessage } from "@/lib/contact/mutations";
 import { enforceRateLimit, getRequestIp } from "@/lib/auth/rate-limit";
 import { actionOk, actionError, type ActionResult } from "@/lib/action-result";
 
@@ -35,5 +39,25 @@ export async function submitContactMessageAction(
     return actionError("Could not send your message. Please try again.");
   }
 
+  return actionOk(undefined);
+}
+
+export async function markContactMessageReadAction(id: number): Promise<ActionResult> {
+  await requireAdmin();
+  const supabase = await createServerSupabaseClient();
+  const result = await markContactMessageRead(supabase, id);
+  if (!result.ok) return actionError(result.error);
+
+  revalidatePath("/admin/contact");
+  return actionOk(undefined);
+}
+
+export async function deleteContactMessageAction(id: number): Promise<ActionResult> {
+  await requireAdmin();
+  const supabase = await createServerSupabaseClient();
+  const result = await deleteContactMessage(supabase, id);
+  if (!result.ok) return actionError(result.error);
+
+  revalidatePath("/admin/contact");
   return actionOk(undefined);
 }
