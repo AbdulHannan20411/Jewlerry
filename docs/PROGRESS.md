@@ -5,6 +5,160 @@ the way for anything the spec left ambiguous. Newest entries at the top.
 
 ---
 
+## Phase 2 & 3 — Database + Authentication/Authorization
+
+**Date:** 2026-09-11
+
+### Database (Phase 2)
+
+12 migrations in `supabase/migrations/`, covering every table in the spec
+plus a few structural additions: `categories` (real taxonomy, alongside
+`tags` for cross-cutting labels like "Sale"/"Featured"), `rate_limit_counters`
+(Postgres-backed fixed-window limiter, no Redis), and `payment_method_details`
+(1:1 extension table for less-common fields like SWIFT code, keeping
+`payment_methods` itself simple).
+
+Business-critical logic lives in **SQL functions**, not just application
+code, so it can't be bypassed by a bug or a future direct query:
+
+- `create_order` — the concurrency-safe checkout core. Locks every
+  referenced product row (`FOR UPDATE`, in a fixed id order to prevent
+  deadlocks between simultaneous checkouts), validates stock against
+  *current* rows, computes the subtotal from *current* server-side prices,
+  snapshots shipping cost from `site_settings`, decrements stock, and
+  writes frozen `order_items` snapshots — all in one transaction.
+- `change_order_status` — the only way an order's status changes; a
+  trigger (`validate_order_status_transition`) enforces the same
+  transition table as `ORDER_STATUS_TRANSITIONS` in
+  `src/constants/index.ts` (keep both in sync), and every change is logged
+  to `order_status_history` atomically.
+- `submit_payment` / `review_payment` — orchestrate payment + order status
+  together (submit: unconfirmed -> payment_pending; approve: -> confirmed;
+  reject: -> unconfirmed), each locking rows to stay race-safe.
+- `validate_review_eligibility` (trigger) — a review can only be inserted
+  if the named order actually contains that product for that customer and
+  has reached delivered/completed. `refresh_product_rating` (trigger)
+  keeps `products.average_rating`/`review_count` in sync, excluding hidden
+  reviews.
+- `anonymize_profile` — self-delete/admin-delete path: rewrites
+  name/username/email to anonymized values and sets `deleted_at`, but
+  never removes the row, so `orders.customer_id` (FK, `on delete
+  restrict`) always stays valid. Paired with banning (not deleting) the
+  matching `auth.users` row via the Auth admin API from application code.
+- `protect_*_columns` triggers on `profiles`/`reviews`/`payments`/
+  `notifications` — defense-in-depth column-level protection (e.g. a
+  customer's own `UPDATE` on their profile silently can't change `role`,
+  `blocked_at`, `deleted_at`, `must_change_password`) on top of (not
+  instead of) RLS and application-level authorization checks.
+
+RLS is enabled on every table. Client roles (anon/authenticated) never get
+direct `INSERT`/`UPDATE` access to `orders`, `order_items`,
+`order_status_history`, or `payments` — all writes to those go through the
+SECURITY DEFINER RPCs above, called from Server Actions using the
+service-role client after an application-level authorization check.
+
+**Verified against a real database, not just written blind:** the Supabase
+CLI's local stack (`supabase start`, Docker/Postgres 17) applied all 12
+migrations and `seed.sql` cleanly. Manually exercised end-to-end against
+the running instance:
+- signup -> `handle_new_user` trigger creates the profile row correctly
+- a customer `PATCH`ing their own `role` to `"admin"` via the REST API
+  directly (bypassing the app entirely) — the request "succeeds" but
+  `protect_profile_privileged_columns` silently reverts it; role stays
+  `customer`
+- `create_order` on a seeded product: correct subtotal/shipping/total,
+  sequential `ORD-2026-000001`/`INV-2026-000001` numbers, stock decremented
+  correctly
+- ordering more than available stock -> rejected with
+  `INSUFFICIENT_STOCK:<id>:<name>:<available>`
+- an illegal status jump (`unconfirmed` -> `delivered` directly) ->
+  rejected by the transition trigger
+- `submit_payment` -> order moves to `payment_pending`; `review_payment`
+  (approve) -> order moves to `confirmed`
+
+### Authentication & Authorization (Phase 3)
+
+- Three Supabase client factories: `lib/supabase/server.ts` (RLS-scoped,
+  cookie-bound, for Server Components/Actions/Route Handlers),
+  `lib/supabase/client.ts` (browser), `lib/supabase/admin.ts`
+  (service-role, `server-only`-guarded so it can't be imported into a
+  Client Component bundle).
+- `lib/permissions`: `requireUser()` / `requireAdmin()` /
+  `isCurrentUserAdmin()`. Documented and followed throughout: these are
+  called from **every** Server Action and Route Handler individually, not
+  just from the page/layout that renders the form — Server Functions are
+  directly POST-able and would otherwise bypass a layout-only check.
+- `src/proxy.ts` (Next 16's renamed `middleware.ts`): refreshes the
+  Supabase session cookie on every request and does a fast *optimistic*
+  redirect for signed-out visitors hitting `/account` or `/admin`. Per the
+  Next.js docs, this is deliberately NOT the real authorization boundary —
+  `lib/permissions` is.
+- Login accepts **username or email**: `lookup_email_for_login` (SQL,
+  SECURITY DEFINER, `service_role`-only grant) resolves the identifier
+  server-side, then the real `signInWithPassword` call always runs (even
+  against a synthetic email when nothing resolves) so a nonexistent-user
+  attempt and a wrong-password attempt are indistinguishable.
+- Forgot-password always returns the same generic response, regardless of
+  whether the email exists *or whether the request was rate-limited* —
+  timing is the only remaining (accepted, minor) side channel.
+- Password-recovery/email-confirmation links land on `/auth/callback` (a
+  Route Handler — cookies can only be set there, not in a Server Component
+  page) which exchanges the PKCE code for a session, then routes onward
+  (`/reset-password` for recovery, `/account` otherwise).
+- Rate limiting on signup/login/forgot-password via the
+  `check_rate_limit` Postgres function (fixed window, keyed by IP +
+  identifier) — fails open on an infra error (never lock everyone out) but
+  logs loudly.
+- Admin bootstrap: `scripts/seed.ts` creates the admin via the Auth admin
+  API (not raw SQL — `auth.users` is Supabase-managed) and sets
+  `must_change_password = true`. `/admin/layout.tsx` redirects such an
+  admin to `/force-password-change`, a standalone route (deliberately
+  outside `/admin` and `/account`) so there's no redirect loop. **Verified
+  live**: ran `npm run seed` against the local instance, confirmed the
+  admin can sign in and `must_change_password` is set.
+- `next.config.ts`: `experimental.authInterrupts` enabled, so
+  `lib/permissions.requireAdmin()` calls `forbidden()` (renders
+  `app/forbidden.tsx`, 403) instead of an ad-hoc redirect.
+- Account deletion (`deleteAccountAction`): password re-entry required,
+  then `anonymize_profile` RPC + `auth.admin.updateUserById(..., {
+  ban_duration: "87600h" })` (ban, never hard-delete — keeps
+  `orders.customer_id` valid forever).
+
+### Fixes discovered only by actually building/running this
+
+- **`Database` type needed `Relationships: []` on every table** to satisfy
+  supabase-js's `GenericTable` constraint — without it, the *entire*
+  schema silently fell back to untyped/`never`, breaking every
+  `.from()`/`.rpc()` call's typing at once. Easy to miss since the error
+  messages point at the call sites, not the actual cause.
+- **supabase-js v2's `SupabaseClient` unconditionally constructs a
+  `RealtimeClient`**, which needs a global `WebSocket` — native only from
+  Node 22+. This app never uses Realtime (spec explicitly rules out
+  WebSockets for notifications), but every server-side Supabase client
+  call still threw on Node 20 without a polyfill. Fixed via
+  `src/instrumentation.ts` (Next's server-startup hook, using the `ws`
+  package) for the app, and a matching inline polyfill in the standalone
+  `scripts/seed.ts`. Documented in-file; safe to delete once on Node 22+.
+- `next typegen`'s `LayoutProps<'/route'>` / typed `redirect()`/`router.push()`
+  reject dynamic (non-literal) route strings — used `as Route` casts for
+  the few genuinely dynamic redirects (`returnTo` query params).
+- `jsdom@27` (latest) requires Node's `require(esm)` support (20.19+);
+  pinned to `25.0.1` for this Node 20.17 machine (see Phase 1 notes).
+- shadcn's Nova preset doesn't ship a classic `form.tsx` — it ships
+  `field.tsx` (`Field`/`FieldLabel`/`FieldError`/etc.) instead. Built a
+  small `components/forms/text-field.tsx` kit (`TextField`,
+  `TextareaField`, `PasswordField`) around it, reused across every form in
+  the app rather than wiring RHF's `Controller` by hand each time.
+
+**Local dev workflow now fully working end-to-end**: `supabase start`
+(Docker) -> `.env.local` pointed at `http://127.0.0.1:54321` -> `npm run
+seed` -> `npm run dev`. Supabase Studio at `http://127.0.0.1:54323` for
+poking at the local DB directly.
+
+**Next:** Phase 4 — Products (CRUD, images, tags, search, filters, stock).
+
+---
+
 ## Phase 1 — Project setup
 
 **Date:** 2026-09-11

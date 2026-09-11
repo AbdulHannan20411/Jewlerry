@@ -1,0 +1,475 @@
+/**
+ * Hand-authored to match supabase/migrations/*.sql exactly. Once the
+ * project is connected to a live Supabase instance, regenerate/verify with:
+ *   npx supabase gen types typescript --local > src/types/database.ts
+ * (then re-apply the doc comments this file adds on top of the generated
+ * shape, or diff before overwriting).
+ */
+
+export type Json =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: Json | undefined }
+  | Json[];
+
+export type OrderStatusValue =
+  | "unconfirmed"
+  | "payment_pending"
+  | "confirmed"
+  | "in_process"
+  | "delivered"
+  | "completed"
+  | "returned"
+  | "cancelled";
+
+export type PaymentStatusValue = "pending" | "approved" | "rejected";
+export type PaymentMethodType = "mobile_wallet" | "bank_transfer" | "other";
+export type NotificationTypeValue =
+  | "order"
+  | "payment"
+  | "announcement"
+  | "promotion"
+  | "system";
+export type ThemePreference = "light" | "dark" | "system";
+export type RoleValue = "admin" | "customer";
+
+export interface Database {
+  public: {
+    Tables: {
+      profiles: {
+        Row: {
+          id: string;
+          email: string;
+          username: string;
+          full_name: string;
+          phone: string | null;
+          avatar_url: string | null;
+          role: RoleValue;
+          theme_preference: ThemePreference;
+          must_change_password: boolean;
+          blocked_at: string | null;
+          blocked_reason: string | null;
+          deleted_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["profiles"]["Row"]> & {
+          id: string;
+          email: string;
+          username: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["profiles"]["Row"]>;
+        Relationships: [];
+      };
+      audit_logs: {
+        Row: {
+          id: string;
+          actor_id: string | null;
+          action: string;
+          entity_type: string;
+          entity_id: string | null;
+          metadata: Json;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["audit_logs"]["Row"]> & {
+          action: string;
+          entity_type: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["audit_logs"]["Row"]>;
+        Relationships: [];
+      };
+      site_settings: {
+        Row: {
+          id: number;
+          store_name: string;
+          store_email: string | null;
+          store_phone: string | null;
+          whatsapp_number: string | null;
+          address: string | null;
+          business_hours: string | null;
+          social_links: Json;
+          low_stock_threshold: number;
+          shipping_cost: number;
+          currency_code: string;
+          dark_mode_enabled: boolean;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["site_settings"]["Row"]>;
+        Update: Partial<Database["public"]["Tables"]["site_settings"]["Row"]>;
+        Relationships: [];
+      };
+      admin_settings: {
+        Row: {
+          id: number;
+          invoice_prefix: string;
+          order_auto_cancel_unconfirmed_hours: number;
+          notify_admin_on_new_order: boolean;
+          notify_admin_on_payment_submitted: boolean;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["admin_settings"]["Row"]>;
+        Update: Partial<Database["public"]["Tables"]["admin_settings"]["Row"]>;
+        Relationships: [];
+      };
+      categories: {
+        Row: {
+          id: string;
+          name: string;
+          slug: string;
+          display_order: number;
+          is_active: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["categories"]["Row"]> & {
+          name: string;
+          slug: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["categories"]["Row"]>;
+        Relationships: [];
+      };
+      products: {
+        Row: {
+          id: string;
+          category_id: string | null;
+          name: string;
+          slug: string;
+          description: string;
+          price_before_discount: number;
+          price_after_discount: number;
+          quantity_in_stock: number;
+          is_active: boolean;
+          average_rating: number;
+          review_count: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["products"]["Row"]> & {
+          name: string;
+          slug: string;
+          price_before_discount: number;
+          price_after_discount: number;
+        };
+        Update: Partial<Database["public"]["Tables"]["products"]["Row"]>;
+        Relationships: [];
+      };
+      product_images: {
+        Row: {
+          id: string;
+          product_id: string;
+          url: string;
+          storage_path: string;
+          alt_text: string;
+          display_order: number;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["product_images"]["Row"]> & {
+          product_id: string;
+          url: string;
+          storage_path: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["product_images"]["Row"]>;
+        Relationships: [];
+      };
+      tags: {
+        Row: {
+          id: string;
+          name: string;
+          slug: string;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["tags"]["Row"]> & {
+          name: string;
+          slug: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["tags"]["Row"]>;
+        Relationships: [];
+      };
+      product_tags: {
+        Row: { product_id: string; tag_id: string };
+        Insert: { product_id: string; tag_id: string };
+        Update: Partial<{ product_id: string; tag_id: string }>;
+        Relationships: [];
+      };
+      orders: {
+        Row: {
+          id: string;
+          order_number: string;
+          invoice_number: string;
+          customer_id: string;
+          status: OrderStatusValue;
+          subtotal: number;
+          shipping_cost: number;
+          total: number;
+          currency_code: string;
+          customer_name: string;
+          customer_phone: string;
+          customer_email: string;
+          shipping_address: string;
+          shipping_city: string | null;
+          shipping_notes: string | null;
+          return_reason: string | null;
+          return_notes: string | null;
+          returned_at: string | null;
+          cancelled_reason: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: never; // orders are only ever created via the create_order RPC
+        Update: never; // status changes only via the change_order_status RPC
+        Relationships: [];
+      };
+      order_items: {
+        Row: {
+          id: string;
+          order_id: string;
+          product_id: string | null;
+          product_name_snapshot: string;
+          product_image_snapshot_url: string | null;
+          unit_price_snapshot: number;
+          quantity: number;
+          line_total: number;
+          created_at: string;
+        };
+        Insert: never;
+        Update: never;
+        Relationships: [];
+      };
+      order_status_history: {
+        Row: {
+          id: string;
+          order_id: string;
+          old_status: OrderStatusValue | null;
+          new_status: OrderStatusValue;
+          changed_by: string | null;
+          reason: string | null;
+          created_at: string;
+        };
+        Insert: never;
+        Update: never;
+        Relationships: [];
+      };
+      reviews: {
+        Row: {
+          id: string;
+          product_id: string;
+          customer_id: string;
+          order_id: string;
+          rating: number;
+          title: string;
+          comment: string;
+          is_hidden: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["reviews"]["Row"]> & {
+          product_id: string;
+          customer_id: string;
+          order_id: string;
+          rating: number;
+        };
+        Update: Partial<Database["public"]["Tables"]["reviews"]["Row"]>;
+        Relationships: [];
+      };
+      payment_methods: {
+        Row: {
+          id: string;
+          type: PaymentMethodType;
+          name: string;
+          account_holder_name: string | null;
+          account_number: string | null;
+          iban: string | null;
+          bank_name: string | null;
+          instructions: string | null;
+          is_active: boolean;
+          display_order: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["payment_methods"]["Row"]> & {
+          type: PaymentMethodType;
+          name: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["payment_methods"]["Row"]>;
+        Relationships: [];
+      };
+      payment_method_details: {
+        Row: {
+          payment_method_id: string;
+          swift_code: string | null;
+          branch_code: string | null;
+          qr_code_url: string | null;
+          extra: Json;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["payment_method_details"]["Row"]> & {
+          payment_method_id: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["payment_method_details"]["Row"]>;
+        Relationships: [];
+      };
+      payments: {
+        Row: {
+          id: string;
+          order_id: string;
+          payment_method_id: string | null;
+          amount: number;
+          transaction_reference: string | null;
+          screenshot_path: string;
+          note: string | null;
+          status: PaymentStatusValue;
+          rejection_reason: string | null;
+          rejection_note: string | null;
+          reviewed_by: string | null;
+          reviewed_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: never; // only via submit_payment RPC
+        Update: never; // only via review_payment RPC
+        Relationships: [];
+      };
+      notifications: {
+        Row: {
+          id: string;
+          user_id: string;
+          title: string;
+          message: string;
+          type: NotificationTypeValue;
+          is_read: boolean;
+          read_at: string | null;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["notifications"]["Row"]> & {
+          user_id: string;
+          title: string;
+          message: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["notifications"]["Row"]>;
+        Relationships: [];
+      };
+      banners: {
+        Row: {
+          id: string;
+          title: string;
+          description: string | null;
+          image_url: string;
+          storage_path: string;
+          button_text: string | null;
+          button_url: string | null;
+          is_active: boolean;
+          start_date: string | null;
+          end_date: string | null;
+          display_order: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["banners"]["Row"]> & {
+          title: string;
+          image_url: string;
+          storage_path: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["banners"]["Row"]>;
+        Relationships: [];
+      };
+      contact_messages: {
+        Row: {
+          id: string;
+          name: string;
+          email: string;
+          subject: string | null;
+          message: string;
+          is_read: boolean;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["contact_messages"]["Row"]> & {
+          name: string;
+          email: string;
+          message: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["contact_messages"]["Row"]>;
+        Relationships: [];
+      };
+      faqs: {
+        Row: {
+          id: string;
+          question: string;
+          answer: string;
+          is_active: boolean;
+          display_order: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["faqs"]["Row"]> & {
+          question: string;
+          answer: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["faqs"]["Row"]>;
+        Relationships: [];
+      };
+    };
+    Views: Record<string, never>;
+    Functions: {
+      current_role_is_admin: { Args: Record<string, never>; Returns: boolean };
+      check_rate_limit: {
+        Args: { p_bucket: string; p_key: string; p_limit: number; p_window_seconds: number };
+        Returns: boolean;
+      };
+      lookup_email_for_login: { Args: { p_identifier: string }; Returns: string | null };
+      create_order: {
+        Args: {
+          p_customer_id: string;
+          p_items: Json;
+          p_customer_name: string;
+          p_customer_phone: string;
+          p_customer_email: string;
+          p_shipping_address: string;
+          p_shipping_city?: string | null;
+          p_shipping_notes?: string | null;
+        };
+        Returns: Database["public"]["Tables"]["orders"]["Row"];
+      };
+      change_order_status: {
+        Args: {
+          p_order_id: string;
+          p_new_status: OrderStatusValue;
+          p_changed_by: string;
+          p_reason?: string | null;
+        };
+        Returns: Database["public"]["Tables"]["orders"]["Row"];
+      };
+      submit_payment: {
+        Args: {
+          p_order_id: string;
+          p_customer_id: string;
+          p_payment_method_id: string;
+          p_amount: number;
+          p_transaction_reference: string | null;
+          p_screenshot_path: string;
+          p_note?: string | null;
+        };
+        Returns: Database["public"]["Tables"]["payments"]["Row"];
+      };
+      review_payment: {
+        Args: {
+          p_payment_id: string;
+          p_new_status: "approved" | "rejected";
+          p_reviewer_id: string;
+          p_rejection_reason?: string | null;
+          p_rejection_note?: string | null;
+        };
+        Returns: Database["public"]["Tables"]["payments"]["Row"];
+      };
+      anonymize_profile: {
+        Args: { p_profile_id: string };
+        Returns: Database["public"]["Tables"]["profiles"]["Row"];
+      };
+    };
+    Enums: Record<string, never>;
+  };
+}
+
+export type Tables<T extends keyof Database["public"]["Tables"]> =
+  Database["public"]["Tables"][T]["Row"];

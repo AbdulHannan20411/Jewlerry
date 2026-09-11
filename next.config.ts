@@ -9,6 +9,13 @@ const supabaseHostname = supabaseUrl ? new URL(supabaseUrl).hostname : undefined
 
 const nextConfig: NextConfig = {
   typedRoutes: true,
+  // Enables forbidden()/unauthorized() + forbidden.tsx/unauthorized.tsx,
+  // used by lib/permissions for admin/role gating (still experimental in
+  // Next 16.3, but stable enough for this use and gives proper dedicated
+  // 403/401 UI segments instead of ad-hoc redirects).
+  experimental: {
+    authInterrupts: true,
+  },
   images: {
     qualities: [60, 75, 90],
     remotePatterns: supabaseHostname

@@ -18,9 +18,9 @@ This README is updated as each phase below completes. See
 | Phase | Status |
 | --- | --- |
 | 1. Project setup (Next.js, Tailwind, shadcn/ui, theme system, folder structure) | ✅ Done |
-| 2. Database (migrations, RLS, seed data) | ⏳ Next |
-| 3. Authentication & authorization | ⏳ Pending |
-| 4. Products (CRUD, images, tags, search, filters, stock) | ⏳ Pending |
+| 2. Database (migrations, RLS, seed data) | ✅ Done — verified against a real local Postgres |
+| 3. Authentication & authorization | ✅ Done — verified end-to-end locally |
+| 4. Products (CRUD, images, tags, search, filters, stock) | ⏳ Next |
 | 5. Storefront (home, listing, detail, cart) | ⏳ Pending |
 | 6. Orders (checkout, statuses, history) | ⏳ Pending |
 | 7. Payments (methods, proof upload, approval) | ⏳ Pending |
@@ -41,23 +41,51 @@ This README is updated as each phase below completes. See
 
 ## Prerequisites
 
-- Node.js **20.19+** recommended (20.9+ is the Next.js 16 minimum; a couple
-  of dev-only sub-dependencies want 20.19+). This repo was scaffolded and
-  verified against Node 20.17 by pinning `jsdom` to `25.0.1` — if you're on
-  Node 20.19+ or 22.13+, you may freely upgrade `jsdom` to latest.
+- **Node.js 22+ strongly recommended.** Next.js 16 itself only requires
+  20.9+, but `@supabase/supabase-js` now targets Node 22+ and its
+  `RealtimeClient` needs a native `WebSocket` global (added in Node 22).
+  This repo runs on Node 20.17 via two small compatibility shims —
+  `jsdom` pinned to `25.0.1` (latest requires Node's `require(esm)`,
+  20.19+/22.13+) and a `ws`-based `WebSocket` polyfill in
+  `src/instrumentation.ts` + `scripts/seed.ts` (see comments there). Both
+  are safe to remove once you're on Node 22+.
 - npm 10+
-- A free [Supabase](https://supabase.com) account/project
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) — only if you want to run Supabase locally (recommended for development; see below). Not needed if you develop directly against a hosted Supabase project.
+- A free [Supabase](https://supabase.com) account/project (for staging/production; optional for local-only development)
 - A free [Vercel](https://vercel.com) account (for deployment)
-- Optional: [Supabase CLI](https://supabase.com/docs/guides/local-development) (installed as a dev dependency — `npx supabase ...`) if you want to run Postgres locally via Docker instead of against the hosted free-tier project
+- [Supabase CLI](https://supabase.com/docs/guides/local-development) — already installed as a dev dependency, use via `npx supabase ...`
 
 ## 1. Supabase setup
+
+You can develop against a fully local Supabase stack (fast, free, no
+account needed) or a hosted project. Both use the same migrations/seed.
+
+### Option A — Local (recommended for development)
+
+```bash
+npx supabase start
+```
+
+This pulls the Supabase Docker images (first run only, a few minutes),
+starts a local Postgres, applies every migration in
+`supabase/migrations/`, and runs `supabase/seed.sql`. It prints an
+`API_URL`, `ANON_KEY`, and `SERVICE_ROLE_KEY` — copy those into
+`.env.local` (see below). Supabase Studio (a local dashboard for browsing
+tables/auth/storage) is served at `http://127.0.0.1:54323`.
+
+Stop it with `npx supabase stop` (add `--no-backup` to also wipe the local
+database).
+
+### Option B — Hosted project
 
 1. Create a new project at [supabase.com](https://supabase.com/dashboard).
 2. In **Project Settings → API**, copy:
    - `Project URL` → `NEXT_PUBLIC_SUPABASE_URL`
    - `anon public` key → `NEXT_PUBLIC_SUPABASE_ANON_KEY`
    - `service_role` key → `SUPABASE_SERVICE_ROLE_KEY` (server-only, never expose to the client)
-3. *(Filled in during Phase 3)* Configure Auth redirect URLs, email templates, and Storage buckets.
+3. Link it and push the migrations: `npx supabase link --project-ref YOUR_PROJECT_REF`, then `npx supabase db push`.
+4. Run `psql "$DATABASE_URL" -f supabase/seed.sql` (or paste it into the SQL editor in the dashboard) to load sample catalog data.
+5. *(Filled in during a later phase)* Configure Auth redirect URLs and email templates for production.
 
 ## 2. Environment variables
 
@@ -65,7 +93,7 @@ This README is updated as each phase below completes. See
 cp .env.example .env.local
 ```
 
-Fill in the values described in `.env.example`. Never commit `.env.local`.
+Fill in the values from step 1 above (local or hosted). Never commit `.env.local`.
 
 ## 3. Install & run
 
@@ -78,19 +106,29 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ## 4. Database migrations & seed data
 
-*(Filled in during Phase 2.)*
+If you used `npx supabase start` (Option A above), migrations and
+`seed.sql` were already applied. To re-apply after pulling new migrations:
 
 ```bash
-npm run db:migrate   # supabase db push
-npm run seed          # creates the bootstrap admin + sample catalog data
+npm run db:migrate   # supabase db push (hosted) — for local, use `npx supabase db reset` to reapply everything
+```
+
+Then bootstrap the admin account (works against either local or hosted,
+based on the Supabase URL/keys in `.env.local`):
+
+```bash
+npm run seed
 ```
 
 ## 5. Admin bootstrap
 
-*(Filled in during Phase 3.)* The seed script creates a single admin account
-from `ADMIN_BOOTSTRAP_*` env vars, with `must_change_password` set so the
-default password is forced to be changed on first login. The password is
-never logged or returned by any API.
+`npm run seed` creates a single admin account from `ADMIN_BOOTSTRAP_*` env
+vars via the Supabase Auth admin API (not raw SQL — `auth.users` is
+Supabase-managed), and sets `must_change_password` so the default password
+is forced to change on first login (redirected to `/force-password-change`
+automatically). The password is never logged or returned by any API. Sign
+in at `/sign-in` with `ADMIN_BOOTSTRAP_USERNAME` — admins land on
+`/admin`, customers on `/account`.
 
 ## 6. Testing
 
