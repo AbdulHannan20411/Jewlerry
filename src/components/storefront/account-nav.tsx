@@ -3,14 +3,13 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { User, ShieldCheck, Package } from "lucide-react";
+import { User, ShieldCheck, Package, Bell, Star } from "lucide-react";
 
-// Extended in later phases as each area ships (notifications in Phase 8,
-// reviews in Phase 10) — kept short here rather than linking to pages
-// that don't exist yet.
 const links = [
   { href: "/account", label: "Profile", icon: User },
   { href: "/account/orders", label: "Orders", icon: Package },
+  { href: "/account/reviews", label: "My Reviews", icon: Star },
+  { href: "/account/notifications", label: "Notifications", icon: Bell },
   { href: "/account/security", label: "Security", icon: ShieldCheck },
 ] as const;
 

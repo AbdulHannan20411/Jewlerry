@@ -7,11 +7,13 @@ import { requireUser } from "@/lib/permissions";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getOrderById } from "@/lib/orders/queries";
 import { getPaymentsForOrder } from "@/lib/payments/queries";
+import { getReviewForOrderItem } from "@/lib/reviews/queries";
 import { canCustomerTransition } from "@/lib/orders/transitions";
 import { OrderStatusBadge } from "@/components/shared/order-status-badge";
 import { PaymentStatusBadge } from "@/components/shared/payment-status-badge";
 import { OrderTimeline } from "@/components/storefront/order-timeline";
 import { CancelOrderButton, RequestReturnButton } from "@/components/storefront/order-actions";
+import { ReviewFormDialog } from "@/components/storefront/review-form-dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -24,7 +26,7 @@ export default async function AccountOrderDetailPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  await requireUser();
+  const profile = await requireUser();
   const { id } = await params;
   const orderId = Number(id);
   if (!Number.isInteger(orderId)) notFound();
@@ -35,6 +37,17 @@ export default async function AccountOrderDetailPage({
 
   const canCancel = canCustomerTransition(order.status, "cancelled");
   const canReturn = canCustomerTransition(order.status, "returned");
+
+  const canReview = ["delivered", "completed"].includes(order.status);
+  const itemReviews = canReview
+    ? await Promise.all(
+        order.items.map((item) =>
+          item.productId
+            ? getReviewForOrderItem(supabase, profile.id, order.id, item.productId)
+            : Promise.resolve(null),
+        ),
+      )
+    : [];
 
   const payments = await getPaymentsForOrder(supabase, order.id);
   const latestPayment = payments[0] ?? null;
@@ -70,30 +83,52 @@ export default async function AccountOrderDetailPage({
               <CardTitle>Items</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              {order.items.map((item) => (
-                <div key={item.id} className="flex gap-3">
-                  <div className="relative size-16 shrink-0 overflow-hidden rounded-md bg-muted">
-                    {item.imageUrl ? (
-                      <Image src={item.imageUrl} alt={item.name} fill sizes="64px" className="object-cover" />
-                    ) : (
-                      <div className="flex size-full items-center justify-center text-muted-foreground">
-                        <ImageOff className="size-4" />
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex flex-1 items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-foreground">{item.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {formatCurrency(item.unitPrice, order.currencyCode)} &times; {item.quantity}
-                      </p>
+              {order.items.map((item, index) => {
+                const existingReview = itemReviews[index];
+                return (
+                  <div key={item.id} className="flex gap-3">
+                    <div className="relative size-16 shrink-0 overflow-hidden rounded-md bg-muted">
+                      {item.imageUrl ? (
+                        <Image src={item.imageUrl} alt={item.name} fill sizes="64px" className="object-cover" />
+                      ) : (
+                        <div className="flex size-full items-center justify-center text-muted-foreground">
+                          <ImageOff className="size-4" />
+                        </div>
+                      )}
                     </div>
-                    <p className="text-sm font-medium text-foreground">
-                      {formatCurrency(item.lineTotal, order.currencyCode)}
-                    </p>
+                    <div className="flex flex-1 flex-col gap-1">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-medium text-foreground">{item.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {formatCurrency(item.unitPrice, order.currencyCode)} &times; {item.quantity}
+                          </p>
+                        </div>
+                        <p className="text-sm font-medium text-foreground">
+                          {formatCurrency(item.lineTotal, order.currencyCode)}
+                        </p>
+                      </div>
+                      {canReview && item.productId && (
+                        <div>
+                          {existingReview ? (
+                            <ReviewFormDialog
+                              mode="edit"
+                              reviewId={existingReview.id}
+                              defaultValues={{
+                                rating: existingReview.rating,
+                                title: existingReview.title,
+                                comment: existingReview.comment,
+                              }}
+                            />
+                          ) : (
+                            <ReviewFormDialog mode="create" productId={item.productId} orderId={order.id} />
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
               <Separator />
               <div className="space-y-1 text-sm">
                 <div className="flex justify-between text-muted-foreground">

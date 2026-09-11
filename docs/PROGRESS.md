@@ -5,6 +5,58 @@ the way for anything the spec left ambiguous. Newest entries at the top.
 
 ---
 
+## Phase 10 — Reviews (submission/edit/delete)
+
+**Date:** 2026-09-11
+
+- Most of the enforcement already existed from Phase 2:
+  `validate_review_eligibility` (trigger — a review can only be inserted
+  if the named order actually contains that product for that customer and
+  has reached `delivered`/`completed`), `refresh_product_rating` (keeps
+  `products.average_rating`/`review_count` in sync, excluding hidden
+  reviews), and RLS that lets a customer write/update/delete **their own**
+  review rows directly — unlike orders/payments, reviews don't need a
+  SECURITY DEFINER RPC or the service-role client; the trigger is the
+  real guarantee either way.
+- `lib/reviews/queries.ts` (extended — Phase 5 already had the read-only
+  `getProductReviews`): `getMyReviewForProduct` (direct table query, not
+  the public RPC — RLS lets a customer always select their own row
+  regardless of `is_hidden`), `getEligibleReviewOrderId` (mirrors the
+  trigger's own eligibility SQL in JS, so the UI never offers a review
+  the trigger would reject), `getReviewForOrderItem` (per order-line CTA
+  state), `getCustomerReviews` ("My Reviews" list, joined to product
+  name/slug/image).
+- `lib/reviews/{mutations,actions}.ts`: `createReview`/`updateReview`/
+  `deleteReview` take the *caller's own* session client. Update/delete
+  don't need an explicit ownership check in application code — RLS scopes
+  them to the caller already, so a foreign review id just matches 0 rows,
+  which the mutation treats as "not found" rather than needing to
+  distinguish "forbidden" from "doesn't exist."
+- UI: `ReviewFormDialog` (create/edit, interactive star-rating input,
+  optional title/comment) + `DeleteReviewButton`, wired into three spots —
+  the product detail page (write, or edit/delete an existing review, next
+  to the existing read-only list), the account order-detail page (a
+  review CTA per line item once the order is delivered/completed), and a
+  new `/account/reviews` "My Reviews" page. Added `/account/reviews` and
+  `/account/notifications` (Phase 8 gap) to the account sidebar nav.
+
+### Verified live (Playwright), the full lifecycle including the rating-aggregate trigger
+
+Advanced a real order to `delivered` (admin status control) → customer's
+product page then showed "Write a review" → submitted a 5-star review →
+product page immediately showed edit/delete instead, review text visible,
+**`products.average_rating`/`review_count` correctly updated to `(5, 1)`**
+(checked directly in the database, not just the UI) → "My Reviews" page
+listed it → edited the rating → deleted it → **rating aggregate correctly
+reset to `(0, 0)`** on delete, "My Reviews" back to empty state. Zero
+console/page errors across the whole run.
+
+**Next:** Phase 11 — Admin (dashboard with real charts, reports, banners
+CRUD, customers management, reviews moderation, notifications composer,
+contact messages, FAQs CRUD, full settings).
+
+---
+
 ## Phase 9 — Invoices (PDF)
 
 **Date:** 2026-09-11

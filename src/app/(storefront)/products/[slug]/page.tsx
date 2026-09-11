@@ -2,9 +2,12 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { getCurrentProfile } from "@/lib/permissions";
 import { getProductBySlug } from "@/lib/products/queries";
-import { getProductReviews } from "@/lib/reviews/queries";
+import { getProductReviews, getMyReviewForProduct, getEligibleReviewOrderId } from "@/lib/reviews/queries";
 import { getSiteSettings } from "@/lib/settings/queries";
+import { ReviewFormDialog } from "@/components/storefront/review-form-dialog";
+import { DeleteReviewButton } from "@/components/storefront/delete-review-button";
 import { computeDiscount } from "@/lib/products/pricing";
 import { getStockStatus, STOCK_STATUS } from "@/constants";
 import { formatCurrency } from "@/lib/utils";
@@ -47,10 +50,14 @@ export default async function ProductDetailPage({
   const product = await getProductBySlug(supabase, slug);
   if (!product || !product.isActive) notFound();
 
-  const [reviews, settings] = await Promise.all([
+  const profile = await getCurrentProfile();
+  const [reviews, settings, myReview] = await Promise.all([
     getProductReviews(supabase, product.id),
     getSiteSettings(),
+    profile ? getMyReviewForProduct(supabase, profile.id, product.id) : Promise.resolve(null),
   ]);
+  const eligibleOrderId =
+    profile && !myReview ? await getEligibleReviewOrderId(supabase, profile.id, product.id) : null;
 
   const { amount, percentage } = computeDiscount(
     product.priceBeforeDiscount,
@@ -135,7 +142,21 @@ export default async function ProductDetailPage({
       <Separator className="my-12" />
 
       <div className="max-w-3xl">
-        <h2 className="font-heading text-2xl font-semibold">Reviews</h2>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="font-heading text-2xl font-semibold">Reviews</h2>
+          {myReview ? (
+            <div className="flex gap-2">
+              <ReviewFormDialog
+                mode="edit"
+                reviewId={myReview.id}
+                defaultValues={{ rating: myReview.rating, title: myReview.title, comment: myReview.comment }}
+              />
+              <DeleteReviewButton reviewId={myReview.id} />
+            </div>
+          ) : (
+            eligibleOrderId && <ReviewFormDialog mode="create" productId={product.id} orderId={eligibleOrderId} />
+          )}
+        </div>
         <div className="mt-2 mb-6">
           <ReviewSummary averageRating={product.averageRating} reviewCount={product.reviewCount} />
         </div>
