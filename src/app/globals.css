@@ -1,0 +1,184 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+  --font-heading: var(--font-heading);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+/*
+  Design system: "Atelier" — ivory / gold / dark-brown.
+  Light mode: ivory ground, dark-brown type, gold accents.
+  Dark mode: deep brown-black ground, warm ivory type, muted gold accents.
+  (Not a simple inversion — values are hand-tuned per mode for contrast/warmth.)
+*/
+
+:root {
+  --background: #faf7f0; /* Ivory */
+  --foreground: #3a2920; /* Dark Brown */
+
+  --card: #fffdf8; /* Light Ivory */
+  --card-foreground: #3a2920;
+
+  --popover: #fffdf8;
+  --popover-foreground: #3a2920;
+
+  --primary: #c6a15b; /* Gold */
+  --primary-foreground: #2b1d16; /* near-black brown, for contrast on gold */
+
+  --secondary: #e6d3a3; /* Light Gold */
+  --secondary-foreground: #3a2920;
+
+  --muted: #f1ead9; /* soft ivory-gold */
+  --muted-foreground: #8a7a6b; /* Muted */
+
+  --accent: #e6d3a3; /* Light Gold */
+  --accent-foreground: #3a2920;
+
+  --destructive: #b3452b; /* warm brick red, fits the warm palette */
+  --destructive-foreground: #fffdf8;
+
+  --success: #4a7a4e;
+  --success-foreground: #fffdf8;
+  --warning: #b8863b;
+  --warning-foreground: #2b1d16;
+
+  --border: #dccfb9; /* Border */
+  --input: #dccfb9;
+  --ring: #c6a15b; /* Gold */
+
+  --chart-1: #c6a15b; /* gold */
+  --chart-2: #6b5143; /* medium brown */
+  --chart-3: #8a9a7e; /* muted sage, for contrast against warm tones */
+  --chart-4: #a35d4f; /* muted terracotta */
+  --chart-5: #5b7a8a; /* muted teal, for contrast */
+
+  --radius: 0.625rem;
+
+  /* Admin sidebar: deep brown even in light mode, for a boutique-admin feel */
+  --sidebar: #2b1d16;
+  --sidebar-foreground: #f3ecdd;
+  --sidebar-primary: #c6a15b;
+  --sidebar-primary-foreground: #2b1d16;
+  --sidebar-accent: #4a362b;
+  --sidebar-accent-foreground: #f3ecdd;
+  --sidebar-border: rgba(230, 211, 163, 0.14);
+  --sidebar-ring: #c6a15b;
+}
+
+.dark {
+  --background: #1c1410; /* deep brown, near-black */
+  --foreground: #f3ecdd; /* warm ivory */
+
+  --card: #241a14;
+  --card-foreground: #f3ecdd;
+
+  --popover: #241a14;
+  --popover-foreground: #f3ecdd;
+
+  --primary: #b8935a; /* muted gold, softened for dark ground */
+  --primary-foreground: #1c1410;
+
+  --secondary: #362820;
+  --secondary-foreground: #f3ecdd;
+
+  --muted: #2e221b;
+  --muted-foreground: #a6957f;
+
+  --accent: #3a2a20;
+  --accent-foreground: #f3ecdd;
+
+  --destructive: #c1573a;
+  --destructive-foreground: #1c1410;
+
+  --success: #6ea373;
+  --success-foreground: #1c1410;
+  --warning: #d1a35f;
+  --warning-foreground: #1c1410;
+
+  --border: rgba(230, 211, 163, 0.14);
+  --input: rgba(230, 211, 163, 0.16);
+  --ring: #b8935a;
+
+  --chart-1: #b8935a;
+  --chart-2: #a6957f;
+  --chart-3: #8fa686;
+  --chart-4: #b57768;
+  --chart-5: #6f95a6;
+
+  --sidebar: #140d0a;
+  --sidebar-foreground: #f3ecdd;
+  --sidebar-primary: #b8935a;
+  --sidebar-primary-foreground: #140d0a;
+  --sidebar-accent: #2e221b;
+  --sidebar-accent-foreground: #f3ecdd;
+  --sidebar-border: rgba(230, 211, 163, 0.1);
+  --sidebar-ring: #b8935a;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    @apply font-heading;
+  }
+}
