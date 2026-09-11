@@ -1,15 +1,27 @@
 "use client";
 
 import * as React from "react";
-import type { UseFormRegisterReturn, FieldError } from "react-hook-form";
+import type {
+  UseFormRegisterReturn,
+  FieldError,
+  FieldErrorsImpl,
+  Merge,
+} from "react-hook-form";
 import { Field, FieldLabel, FieldError as FieldErrorDisplay } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 
+// RHF's error type for a given field widens to this Merge<> shape whenever
+// the overall schema has a top-level .refine()/.superRefine() (common for
+// this app's forms — see e.g. productFormSchema's cross-field discount
+// check). Both shapes carry a `.message`, which is all these components
+// actually read.
+type FieldErrorLike = FieldError | Merge<FieldError, FieldErrorsImpl<Record<string, unknown>>>;
+
 type BaseProps = {
   label: string;
   register: UseFormRegisterReturn;
-  error?: FieldError;
+  error?: FieldErrorLike;
   description?: string;
   className?: string;
 };

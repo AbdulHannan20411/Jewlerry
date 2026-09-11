@@ -35,6 +35,25 @@ export type NotificationTypeValue =
 export type ThemePreference = "light" | "dark" | "system";
 export type RoleValue = "admin" | "customer";
 
+/** Row shape returned by the search_products() RPC (see migration 0013). */
+export interface SearchProductsRow {
+  id: string;
+  category_id: string | null;
+  name: string;
+  slug: string;
+  description: string;
+  price_before_discount: number;
+  price_after_discount: number;
+  quantity_in_stock: number;
+  is_active: boolean;
+  average_rating: number;
+  review_count: number;
+  created_at: string;
+  updated_at: string;
+  primary_image_url: string | null;
+  total_count: number;
+}
+
 export interface Database {
   public: {
     Tables: {
@@ -465,6 +484,23 @@ export interface Database {
       anonymize_profile: {
         Args: { p_profile_id: string };
         Returns: Database["public"]["Tables"]["profiles"]["Row"];
+      };
+      search_products: {
+        Args: {
+          p_query?: string | null;
+          p_tag_slug?: string | null;
+          p_category_slug?: string | null;
+          p_min_price?: number | null;
+          p_max_price?: number | null;
+          p_min_rating?: number | null;
+          p_in_stock_only?: boolean;
+          p_new_within_days?: number | null;
+          p_sort?: string;
+          p_page?: number;
+          p_page_size?: number;
+          p_include_inactive?: boolean;
+        };
+        Returns: SearchProductsRow[];
       };
     };
     Enums: Record<string, never>;

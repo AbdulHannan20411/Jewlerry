@@ -8,17 +8,24 @@ import { z } from "zod";
  * a client schema.
  */
 
+// `KEY=` with nothing after it in .env.local/.env.example loads as an
+// empty string, not undefined — without this, z.string().min(1).optional()
+// rejects it (empty string isn't undefined *or* >=1 char) even though
+// "unset" is exactly what an empty placeholder value means.
+const optionalString = (schema: z.ZodString) =>
+  z.preprocess((v) => (v === "" ? undefined : v), schema.optional());
+
 const serverSchema = z.object({
   NEXT_PUBLIC_SUPABASE_URL: z.url(),
   NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1),
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
-  RESEND_API_KEY: z.string().min(1).optional(),
+  RESEND_API_KEY: optionalString(z.string().min(1)),
   EMAIL_FROM: z.string().min(1).default("Atelier Jewelry <onboarding@resend.dev>"),
   SITE_URL: z.url().default("http://localhost:3000"),
   ADMIN_BOOTSTRAP_USERNAME: z.string().min(1).default("admin"),
   ADMIN_BOOTSTRAP_PASSWORD: z.string().min(8).default("Admin@123"),
   ADMIN_BOOTSTRAP_EMAIL: z.email().default("admin@atelier.local"),
-  CRON_SECRET: z.string().min(1).optional(),
+  CRON_SECRET: optionalString(z.string().min(1)),
 });
 
 const clientSchema = z.object({

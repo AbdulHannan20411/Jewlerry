@@ -21,14 +21,22 @@ export const productFormSchema = z
     message: "Discounted price cannot exceed the original price",
     path: ["priceAfterDiscount"],
   });
-export type ProductFormInput = z.infer<typeof productFormSchema>;
+// z.coerce.number() gives this schema a *narrower* output type (number)
+// than its input type (unknown, since coerce accepts anything pre-parse).
+// ProductFormInput is the parsed/output shape — used everywhere outside
+// the form itself (Server Actions, component props). The form component
+// needs the raw input shape too, for useForm's 3-generic
+// input/context/output pattern — see ProductFormRawInput below.
+export type ProductFormInput = z.output<typeof productFormSchema>;
+export type ProductFormRawInput = z.input<typeof productFormSchema>;
 
 export const categoryFormSchema = z.object({
   name: z.string().trim().min(2).max(100),
   displayOrder: z.coerce.number().int().default(0),
   isActive: z.boolean().default(true),
 });
-export type CategoryFormInput = z.infer<typeof categoryFormSchema>;
+export type CategoryFormInput = z.output<typeof categoryFormSchema>;
+export type CategoryFormRawInput = z.input<typeof categoryFormSchema>;
 
 export const tagFormSchema = z.object({
   name: z.string().trim().min(2, "Tag name is required").max(50),

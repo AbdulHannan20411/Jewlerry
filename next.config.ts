@@ -18,15 +18,23 @@ const nextConfig: NextConfig = {
   },
   images: {
     qualities: [60, 75, 90],
-    remotePatterns: supabaseHostname
-      ? [
-          {
-            protocol: "https",
-            hostname: supabaseHostname,
-            pathname: "/storage/v1/object/public/**",
-          },
-        ]
-      : [],
+    remotePatterns: [
+      ...(supabaseHostname
+        ? [
+            {
+              protocol: "https" as const,
+              hostname: supabaseHostname,
+              pathname: "/storage/v1/object/public/**",
+            },
+          ]
+        : []),
+      // supabase/seed.sql uses picsum.photos for placeholder product/banner
+      // images — dev-only, never referenced by production data (admin
+      // uploads go to Supabase Storage instead).
+      ...(process.env.NODE_ENV === "development"
+        ? [{ protocol: "https" as const, hostname: "picsum.photos" }]
+        : []),
+    ],
   },
 };
 

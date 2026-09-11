@@ -5,6 +5,110 @@ the way for anything the spec left ambiguous. Newest entries at the top.
 
 ---
 
+## Phase 4 — Products (CRUD, images, tags, categories, search/filter/sort/stock)
+
+**Date:** 2026-09-11
+
+- `search_products` (migration 0013): the one query behind both the admin
+  product table and the eventual storefront listing — full-text search
+  (`websearch_to_tsquery` over the `search_vector` generated column),
+  tag/category/price/rating/stock/new-within-days filters, a fixed sort
+  enum (see the "one param, all-other-branches-null" trick in the SQL
+  comment), and pagination via `count(*) over()` — all in one round trip.
+  Deliberately **not** `security definer`: it runs with the caller's own
+  RLS, so `p_include_inactive=true` from a non-admin is a no-op, not a
+  bypass.
+- `lib/products/{queries,mutations,actions,pricing}.ts`: queries wrap the
+  RPC + batch-fetch tags per product (avoids embedding complexity in the
+  RPC's typed return); mutations are plain functions taking a Supabase
+  client (reused by both the eventual customer-facing paths and admin);
+  actions.ts is the `'use server'` layer — `requireAdmin()` + Zod
+  validation + audit log + `revalidatePath` around every mutation.
+- `lib/storage/images.ts`: shared upload/delete helper (validates type/size,
+  writes to `${folder}/${nanoid()}.${ext}`) reused for product images now,
+  banners/avatars later — takes the caller's own Supabase client so
+  storage.objects RLS is actually exercised, not just bypassed via
+  service-role.
+- Admin UI: `/admin/products` (search + sort + paginated table, stock/status
+  badges), `/admin/products/new` + `/admin/products/[id]` (form + image
+  manager — upload/reorder-via-arrows/delete, no drag-and-drop library),
+  `/admin/tags` and `/admin/categories` (dialog-based create/edit, search +
+  pagination for tags). Categories isn't in the admin sidebar (not in the
+  spec's nav list) — reachable from the Products page's "Manage
+  categories" button instead.
+- Generic, reusable admin infrastructure (will carry through Orders/
+  Customers/Reviews in later phases): `components/admin/data-table.tsx`
+  (TanStack Table v8, manual/server-driven — sorting, filtering, and
+  pagination are all URL params the Server Component page reads, not
+  client table state), `search-input.tsx` / `sort-select.tsx` /
+  `pagination-controls.tsx` (each drives a URL param), and
+  `confirm-delete-button.tsx` (one AlertDialog wrapper for every "delete
+  this" admin action).
+- `components/forms/`: added `select-field.tsx` (Select + Switch, RHF
+  `Controller`-based) and `tag-multi-select.tsx` (Command+Popover
+  combobox) to the Phase 3 text-field kit.
+- Badge component gained `success`/`warning` variants (matching the
+  existing `--success`/`--warning` design tokens from Phase 1) — used by
+  the new `StockBadge` shared component (in/low/out of stock, text label
+  always present so state is never color-only, per accessibility
+  guidance).
+- Discount math (`computeDiscount`) is the one place price display logic
+  lives, unit-tested (`tests/unit/pricing.test.ts`) — never trust a
+  discount amount/percentage computed client-side.
+- Product delete is a real hard delete (not soft/deactivate): order_items
+  already snapshot name/price/image independently
+  (`product_id` is `on delete set null`), so removing a product can never
+  corrupt a historical order. Deleting also cleans up its Storage images.
+
+### Verified live (browser-driven, not just typecheck/build)
+
+No `chromium-cli` in this environment, so used Playwright directly
+(`npx playwright install chromium`, a throwaway `--no-save` install, script
+run from `scripts/` for module resolution then deleted). Full flow: sign in
+as the bootstrap admin -> forced password change -> `/admin/products`
+(all 12 seeded products render with images/discount%/stock/status/tags) ->
+create a new product -> lands on its edit page -> search filters correctly
+-> delete via the confirm dialog. **Zero browser console errors** on the
+final clean run.
+
+That run caught two real bugs neither `typecheck` nor `build` could have
+caught (both are now fixed and covered by the fix being load-bearing for
+the verification to pass at all):
+- `RESEND_API_KEY=` (empty string) in `.env.local` failed
+  `z.string().min(1).optional()` — an empty env var is not the same as an
+  unset one to Zod. Fixed with an `optionalString()` helper in
+  `lib/env.ts` that preprocesses `"" -> undefined` before validation.
+- `next/image` rejected `picsum.photos` (used by `supabase/seed.sql`'s
+  placeholder images) — `next.config.ts`'s `remotePatterns` only
+  allowlisted the Supabase storage hostname. Added picsum.photos, but
+  gated behind `NODE_ENV === "development"` so production doesn't carry
+  an allowlisted host that's never used outside dev seed data.
+
+Also downgraded `@tanstack/react-table` from `^9.2.4` (resolved to a
+just-released v9 with a completely different `TableFeatures`-based API —
+no `useReactTable`/`getCoreRowModel`) to the stable, well-documented
+`8.21.3` line, which is what `components/admin/data-table.tsx` actually
+targets.
+
+### A recurring Zod v4 + RHF typing gotcha (worth knowing for later forms)
+
+`z.coerce.number()` gives a schema an input type of `unknown` for that
+field (pre-coercion) but an output type of `number` (post-coercion).
+`useForm<OutputType>({ resolver: zodResolver(schema) })` then mismatches,
+because `zodResolver`'s inferred `Resolver<Input, Context, Output>` doesn't
+line up with a `useForm` generic pinned to `Output`. Fixed by exporting
+both `z.input<>` (`*RawInput`) and `z.output<>` (`*Input`, used everywhere
+outside the form) types from the validation schema, and using RHF's
+3-generic form: `useForm<RawInput, unknown, Input>(...)`. Separately, any
+schema with a top-level `.refine()` widens `errors.<field>`'s type to
+`Merge<FieldError, FieldErrorsImpl<{}>>` — the form-field components' `error`
+prop now accepts `FieldError | Merge<...>` (see the `FieldErrorLike` alias
+in `text-field.tsx`/`select-field.tsx`) rather than plain `FieldError`.
+
+**Next:** Phase 5 — Storefront (home, product list, product detail, cart).
+
+---
+
 ## Phase 2 & 3 — Database + Authentication/Authorization
 
 **Date:** 2026-09-11

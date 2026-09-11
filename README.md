@@ -20,7 +20,7 @@ This README is updated as each phase below completes. See
 | 1. Project setup (Next.js, Tailwind, shadcn/ui, theme system, folder structure) | ✅ Done |
 | 2. Database (migrations, RLS, seed data) | ✅ Done — verified against a real local Postgres |
 | 3. Authentication & authorization | ✅ Done — verified end-to-end locally |
-| 4. Products (CRUD, images, tags, search, filters, stock) | ⏳ Next |
+| 4. Products (CRUD, images, tags, search, filters, stock) | ✅ Done — verified in a real browser (Playwright) |
 | 5. Storefront (home, listing, detail, cart) | ⏳ Pending |
 | 6. Orders (checkout, statuses, history) | ⏳ Pending |
 | 7. Payments (methods, proof upload, approval) | ⏳ Pending |
