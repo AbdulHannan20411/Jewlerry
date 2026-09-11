@@ -4,7 +4,7 @@
 -- =============================================================================
 
 create table public.notifications (
-  id uuid primary key default gen_random_uuid(),
+  id bigint generated always as identity primary key,
   user_id uuid not null references public.profiles(id) on delete cascade,
   title text not null,
   message text not null,

@@ -22,8 +22,8 @@ create or replace function public.search_products(
   p_include_inactive boolean default false
 )
 returns table (
-  id uuid,
-  category_id uuid,
+  id bigint,
+  category_id bigint,
   name text,
   slug text,
   description text,

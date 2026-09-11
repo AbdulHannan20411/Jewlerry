@@ -4,6 +4,13 @@
  *   npx supabase gen types typescript --local > src/types/database.ts
  * (then re-apply the doc comments this file adds on top of the generated
  * shape, or diff before overwriting).
+ *
+ * ID types: every table's primary key is `bigint generated always as
+ * identity` (returned by PostgREST as a plain JS number) EXCEPT
+ * `profiles.id`, which is fixed to Supabase Auth's UUID user id — and
+ * therefore every foreign key that points at profiles (customer_id,
+ * actor_id, user_id, changed_by, reviewed_by, ...) stays `string` (uuid)
+ * too. Everything else is `number`.
  */
 
 export type Json =
@@ -37,8 +44,8 @@ export type RoleValue = "admin" | "customer";
 
 /** Row shape returned by the search_products() RPC (see migration 0013). */
 export interface SearchProductsRow {
-  id: string;
-  category_id: string | null;
+  id: number;
+  category_id: number | null;
   name: string;
   slug: string;
   description: string;
@@ -84,7 +91,7 @@ export interface Database {
       };
       audit_logs: {
         Row: {
-          id: string;
+          id: number;
           actor_id: string | null;
           action: string;
           entity_type: string;
@@ -134,7 +141,7 @@ export interface Database {
       };
       categories: {
         Row: {
-          id: string;
+          id: number;
           name: string;
           slug: string;
           display_order: number;
@@ -151,8 +158,8 @@ export interface Database {
       };
       products: {
         Row: {
-          id: string;
-          category_id: string | null;
+          id: number;
+          category_id: number | null;
           name: string;
           slug: string;
           description: string;
@@ -176,8 +183,8 @@ export interface Database {
       };
       product_images: {
         Row: {
-          id: string;
-          product_id: string;
+          id: number;
+          product_id: number;
           url: string;
           storage_path: string;
           alt_text: string;
@@ -185,7 +192,7 @@ export interface Database {
           created_at: string;
         };
         Insert: Partial<Database["public"]["Tables"]["product_images"]["Row"]> & {
-          product_id: string;
+          product_id: number;
           url: string;
           storage_path: string;
         };
@@ -194,7 +201,7 @@ export interface Database {
       };
       tags: {
         Row: {
-          id: string;
+          id: number;
           name: string;
           slug: string;
           created_at: string;
@@ -207,14 +214,14 @@ export interface Database {
         Relationships: [];
       };
       product_tags: {
-        Row: { product_id: string; tag_id: string };
-        Insert: { product_id: string; tag_id: string };
-        Update: Partial<{ product_id: string; tag_id: string }>;
+        Row: { product_id: number; tag_id: number };
+        Insert: { product_id: number; tag_id: number };
+        Update: Partial<{ product_id: number; tag_id: number }>;
         Relationships: [];
       };
       orders: {
         Row: {
-          id: string;
+          id: number;
           order_number: string;
           invoice_number: string;
           customer_id: string;
@@ -242,9 +249,9 @@ export interface Database {
       };
       order_items: {
         Row: {
-          id: string;
-          order_id: string;
-          product_id: string | null;
+          id: number;
+          order_id: number;
+          product_id: number | null;
           product_name_snapshot: string;
           product_image_snapshot_url: string | null;
           unit_price_snapshot: number;
@@ -258,8 +265,8 @@ export interface Database {
       };
       order_status_history: {
         Row: {
-          id: string;
-          order_id: string;
+          id: number;
+          order_id: number;
           old_status: OrderStatusValue | null;
           new_status: OrderStatusValue;
           changed_by: string | null;
@@ -272,10 +279,10 @@ export interface Database {
       };
       reviews: {
         Row: {
-          id: string;
-          product_id: string;
+          id: number;
+          product_id: number;
           customer_id: string;
-          order_id: string;
+          order_id: number;
           rating: number;
           title: string;
           comment: string;
@@ -284,9 +291,9 @@ export interface Database {
           updated_at: string;
         };
         Insert: Partial<Database["public"]["Tables"]["reviews"]["Row"]> & {
-          product_id: string;
+          product_id: number;
           customer_id: string;
-          order_id: string;
+          order_id: number;
           rating: number;
         };
         Update: Partial<Database["public"]["Tables"]["reviews"]["Row"]>;
@@ -294,7 +301,7 @@ export interface Database {
       };
       payment_methods: {
         Row: {
-          id: string;
+          id: number;
           type: PaymentMethodType;
           name: string;
           account_holder_name: string | null;
@@ -316,7 +323,7 @@ export interface Database {
       };
       payment_method_details: {
         Row: {
-          payment_method_id: string;
+          payment_method_id: number;
           swift_code: string | null;
           branch_code: string | null;
           qr_code_url: string | null;
@@ -324,16 +331,16 @@ export interface Database {
           updated_at: string;
         };
         Insert: Partial<Database["public"]["Tables"]["payment_method_details"]["Row"]> & {
-          payment_method_id: string;
+          payment_method_id: number;
         };
         Update: Partial<Database["public"]["Tables"]["payment_method_details"]["Row"]>;
         Relationships: [];
       };
       payments: {
         Row: {
-          id: string;
-          order_id: string;
-          payment_method_id: string | null;
+          id: number;
+          order_id: number;
+          payment_method_id: number | null;
           amount: number;
           transaction_reference: string | null;
           screenshot_path: string;
@@ -352,7 +359,7 @@ export interface Database {
       };
       notifications: {
         Row: {
-          id: string;
+          id: number;
           user_id: string;
           title: string;
           message: string;
@@ -371,7 +378,7 @@ export interface Database {
       };
       banners: {
         Row: {
-          id: string;
+          id: number;
           title: string;
           description: string | null;
           image_url: string;
@@ -395,7 +402,7 @@ export interface Database {
       };
       contact_messages: {
         Row: {
-          id: string;
+          id: number;
           name: string;
           email: string;
           subject: string | null;
@@ -413,7 +420,7 @@ export interface Database {
       };
       faqs: {
         Row: {
-          id: string;
+          id: number;
           question: string;
           answer: string;
           is_active: boolean;
@@ -452,7 +459,7 @@ export interface Database {
       };
       change_order_status: {
         Args: {
-          p_order_id: string;
+          p_order_id: number;
           p_new_status: OrderStatusValue;
           p_changed_by: string;
           p_reason?: string | null;
@@ -461,9 +468,9 @@ export interface Database {
       };
       submit_payment: {
         Args: {
-          p_order_id: string;
+          p_order_id: number;
           p_customer_id: string;
-          p_payment_method_id: string;
+          p_payment_method_id: number;
           p_amount: number;
           p_transaction_reference: string | null;
           p_screenshot_path: string;
@@ -473,7 +480,7 @@ export interface Database {
       };
       review_payment: {
         Args: {
-          p_payment_id: string;
+          p_payment_id: number;
           p_new_status: "approved" | "rejected";
           p_reviewer_id: string;
           p_rejection_reason?: string | null;
@@ -501,6 +508,17 @@ export interface Database {
           p_include_inactive?: boolean;
         };
         Returns: SearchProductsRow[];
+      };
+      get_product_reviews: {
+        Args: { p_product_id: number; p_limit?: number };
+        Returns: {
+          id: number;
+          rating: number;
+          title: string;
+          comment: string;
+          created_at: string;
+          customer_display_name: string;
+        }[];
       };
     };
     Enums: Record<string, never>;

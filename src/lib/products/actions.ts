@@ -19,7 +19,7 @@ import * as mutations from "@/lib/products/mutations";
 
 export async function createProductAction(
   input: ProductFormInput,
-): Promise<ActionResult<{ id: string }>> {
+): Promise<ActionResult<{ id: number }>> {
   const parsed = productFormSchema.safeParse(input);
   if (!parsed.success) {
     return actionError("Please fix the errors below.", parsed.error.flatten().fieldErrors);
@@ -44,7 +44,7 @@ export async function createProductAction(
 }
 
 export async function updateProductAction(
-  id: string,
+  id: number,
   input: ProductFormInput,
 ): Promise<ActionResult> {
   const parsed = productFormSchema.safeParse(input);
@@ -77,7 +77,7 @@ export async function updateProductAction(
   return actionOk(undefined);
 }
 
-export async function deleteProductAction(id: string): Promise<ActionResult> {
+export async function deleteProductAction(id: number): Promise<ActionResult> {
   const admin = await requireAdmin();
   const supabase = await createServerSupabaseClient();
 
@@ -96,7 +96,7 @@ export async function deleteProductAction(id: string): Promise<ActionResult> {
 }
 
 export async function uploadProductImageAction(
-  productId: string,
+  productId: number,
   formData: FormData,
 ): Promise<ActionResult> {
   await requireAdmin();
@@ -107,7 +107,7 @@ export async function uploadProductImageAction(
   const result = await uploadPublicImage(
     supabase,
     STORAGE_BUCKETS.PRODUCT_IMAGES,
-    productId,
+    String(productId),
     file,
   );
 
@@ -133,8 +133,8 @@ export async function uploadProductImageAction(
 }
 
 export async function deleteProductImageAction(
-  productId: string,
-  imageId: string,
+  productId: number,
+  imageId: number,
 ): Promise<ActionResult> {
   await requireAdmin();
   const supabase = await createServerSupabaseClient();
@@ -146,8 +146,8 @@ export async function deleteProductImageAction(
 }
 
 export async function reorderProductImagesAction(
-  productId: string,
-  orderedImageIds: string[],
+  productId: number,
+  orderedImageIds: number[],
 ): Promise<ActionResult> {
   await requireAdmin();
   const supabase = await createServerSupabaseClient();
@@ -179,7 +179,7 @@ export async function createCategoryAction(input: CategoryFormInput): Promise<Ac
 }
 
 export async function updateCategoryAction(
-  id: string,
+  id: number,
   input: CategoryFormInput,
 ): Promise<ActionResult> {
   const parsed = categoryFormSchema.safeParse(input);
@@ -194,7 +194,7 @@ export async function updateCategoryAction(
   return actionOk(undefined);
 }
 
-export async function deleteCategoryAction(id: string): Promise<ActionResult> {
+export async function deleteCategoryAction(id: number): Promise<ActionResult> {
   const admin = await requireAdmin();
   const supabase = await createServerSupabaseClient();
   const result = await mutations.deleteCategory(supabase, id);
@@ -232,7 +232,7 @@ export async function createTagAction(input: TagFormInput): Promise<ActionResult
   return actionOk(undefined);
 }
 
-export async function updateTagAction(id: string, input: TagFormInput): Promise<ActionResult> {
+export async function updateTagAction(id: number, input: TagFormInput): Promise<ActionResult> {
   const parsed = tagFormSchema.safeParse(input);
   if (!parsed.success) return actionError("Please fix the errors below.", parsed.error.flatten().fieldErrors);
 
@@ -245,7 +245,7 @@ export async function updateTagAction(id: string, input: TagFormInput): Promise<
   return actionOk(undefined);
 }
 
-export async function deleteTagAction(id: string): Promise<ActionResult> {
+export async function deleteTagAction(id: number): Promise<ActionResult> {
   const admin = await requireAdmin();
   const supabase = await createServerSupabaseClient();
   const result = await mutations.deleteTag(supabase, id);

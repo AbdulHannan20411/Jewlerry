@@ -1,11 +1,20 @@
 import { z } from "zod";
 import { MAX_IMAGE_SIZE_BYTES, ALLOWED_IMAGE_MIME_TYPES } from "@/constants";
 
+// The category <Select> works in strings (Radix requirement) and reports
+// null for "no category" — coerce the non-null case only, since
+// z.coerce.number() on null/undefined/"" would otherwise (wrongly) coerce
+// to 0 and match before a plain z.null() branch gets a chance to.
+const nullableId = z.preprocess(
+  (v) => (v === null || v === undefined || v === "" ? null : Number(v)),
+  z.number().int().positive().nullable(),
+);
+
 export const productFormSchema = z
   .object({
     name: z.string().trim().min(2, "Name is required").max(200),
     description: z.string().trim().max(5000).default(""),
-    categoryId: z.uuid().nullable().optional(),
+    categoryId: nullableId.optional(),
     priceBeforeDiscount: z.coerce
       .number()
       .min(0, "Price must be 0 or more"),
@@ -15,7 +24,7 @@ export const productFormSchema = z
       .int("Stock must be a whole number")
       .min(0, "Stock cannot be negative"),
     isActive: z.boolean().default(true),
-    tagIds: z.array(z.uuid()).default([]),
+    tagIds: z.array(z.number().int().positive()).default([]),
   })
   .refine((data) => data.priceAfterDiscount <= data.priceBeforeDiscount, {
     message: "Discounted price cannot exceed the original price",

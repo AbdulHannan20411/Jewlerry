@@ -31,7 +31,7 @@ export function CategoryFormDialog({
   defaultValues,
 }: {
   mode: "create" | "edit";
-  categoryId?: string;
+  categoryId?: number;
   defaultValues?: CategoryFormInput;
 }) {
   const [open, setOpen] = React.useState(false);

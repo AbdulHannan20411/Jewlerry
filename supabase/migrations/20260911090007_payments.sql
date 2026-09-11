@@ -4,7 +4,7 @@
 -- =============================================================================
 
 create table public.payment_methods (
-  id uuid primary key default gen_random_uuid(),
+  id bigint generated always as identity primary key,
   type text not null check (type in ('mobile_wallet', 'bank_transfer', 'other')),
   name text not null,
   account_holder_name text,
@@ -28,7 +28,7 @@ create trigger payment_methods_set_updated_at
 -- (payment_methods alone) stays simple while still being extensible without
 -- another migration for every new payment method quirk.
 create table public.payment_method_details (
-  payment_method_id uuid primary key references public.payment_methods(id) on delete cascade,
+  payment_method_id bigint primary key references public.payment_methods(id) on delete cascade,
   swift_code text,
   branch_code text,
   qr_code_url text,
@@ -42,9 +42,9 @@ create trigger payment_method_details_set_updated_at
 
 -- ---------------------------------------------------------------------------
 create table public.payments (
-  id uuid primary key default gen_random_uuid(),
-  order_id uuid not null references public.orders(id) on delete cascade,
-  payment_method_id uuid references public.payment_methods(id) on delete set null,
+  id bigint generated always as identity primary key,
+  order_id bigint not null references public.orders(id) on delete cascade,
+  payment_method_id bigint references public.payment_methods(id) on delete set null,
   amount numeric(12, 2) not null check (amount >= 0),
   transaction_reference text,
   -- Bucket-relative path in the PRIVATE payment-proofs bucket. Never a
@@ -112,9 +112,9 @@ create trigger payments_protect_columns
 -- (only the first time) advances unconfirmed -> payment_pending.
 -- ---------------------------------------------------------------------------
 create or replace function public.submit_payment(
-  p_order_id uuid,
+  p_order_id bigint,
   p_customer_id uuid,
-  p_payment_method_id uuid,
+  p_payment_method_id bigint,
   p_amount numeric,
   p_transaction_reference text,
   p_screenshot_path text,
@@ -155,8 +155,8 @@ begin
 end;
 $$;
 
-revoke all on function public.submit_payment(uuid, uuid, uuid, numeric, text, text, text) from public;
-grant execute on function public.submit_payment(uuid, uuid, uuid, numeric, text, text, text) to service_role;
+revoke all on function public.submit_payment(bigint, uuid, bigint, numeric, text, text, text) from public;
+grant execute on function public.submit_payment(bigint, uuid, bigint, numeric, text, text, text) to service_role;
 
 -- ---------------------------------------------------------------------------
 -- review_payment: admin approves/rejects. Atomically updates the payment
@@ -164,7 +164,7 @@ grant execute on function public.submit_payment(uuid, uuid, uuid, numeric, text,
 -- unconfirmed). Refuses to double-review an already-decided payment.
 -- ---------------------------------------------------------------------------
 create or replace function public.review_payment(
-  p_payment_id uuid,
+  p_payment_id bigint,
   p_new_status text,
   p_reviewer_id uuid,
   p_rejection_reason text default null,
@@ -213,8 +213,8 @@ begin
 end;
 $$;
 
-revoke all on function public.review_payment(uuid, text, uuid, text, text) from public;
-grant execute on function public.review_payment(uuid, text, uuid, text, text) to service_role;
+revoke all on function public.review_payment(bigint, text, uuid, text, text) from public;
+grant execute on function public.review_payment(bigint, text, uuid, text, text) to service_role;
 
 -- =============================================================================
 -- RLS

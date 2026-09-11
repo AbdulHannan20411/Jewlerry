@@ -16,10 +16,13 @@ export default async function EditProductPage({
 }) {
   await requireAdmin();
   const { id } = await params;
+  const productId = Number(id);
+  if (!Number.isInteger(productId)) notFound();
+
   const supabase = await createServerSupabaseClient();
 
   const [result, categories, tags] = await Promise.all([
-    getProductForEdit(supabase, id),
+    getProductForEdit(supabase, productId),
     getAllCategories(supabase),
     getAllTags(supabase),
   ]);

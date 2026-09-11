@@ -3,7 +3,7 @@
 -- =============================================================================
 
 create table public.categories (
-  id uuid primary key default gen_random_uuid(),
+  id bigint generated always as identity primary key,
   name text not null,
   slug text not null,
   display_order integer not null default 0,
@@ -21,8 +21,8 @@ create trigger categories_set_updated_at
 
 -- ---------------------------------------------------------------------------
 create table public.products (
-  id uuid primary key default gen_random_uuid(),
-  category_id uuid references public.categories(id) on delete set null,
+  id bigint generated always as identity primary key,
+  category_id bigint references public.categories(id) on delete set null,
   name text not null,
   slug text not null,
   description text not null default '',
@@ -60,8 +60,8 @@ create trigger products_set_updated_at
 
 -- ---------------------------------------------------------------------------
 create table public.product_images (
-  id uuid primary key default gen_random_uuid(),
-  product_id uuid not null references public.products(id) on delete cascade,
+  id bigint generated always as identity primary key,
+  product_id bigint not null references public.products(id) on delete cascade,
   url text not null,
   storage_path text not null, -- bucket-relative path, used to delete from Storage
   alt_text text not null default '',
@@ -73,7 +73,7 @@ create index product_images_product_idx on public.product_images (product_id, di
 
 -- ---------------------------------------------------------------------------
 create table public.tags (
-  id uuid primary key default gen_random_uuid(),
+  id bigint generated always as identity primary key,
   name text not null,
   slug text not null,
   created_at timestamptz not null default now()
@@ -83,8 +83,8 @@ create unique index tags_slug_idx on public.tags (slug);
 create unique index tags_name_lower_idx on public.tags (lower(name));
 
 create table public.product_tags (
-  product_id uuid not null references public.products(id) on delete cascade,
-  tag_id uuid not null references public.tags(id) on delete cascade,
+  product_id bigint not null references public.products(id) on delete cascade,
+  tag_id bigint not null references public.tags(id) on delete cascade,
   primary key (product_id, tag_id)
 );
 

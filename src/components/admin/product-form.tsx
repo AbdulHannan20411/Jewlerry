@@ -25,10 +25,10 @@ export function ProductForm({
   tags,
 }: {
   mode: "create" | "edit";
-  productId?: string;
+  productId?: number;
   defaultValues: ProductFormInput;
-  categories: { id: string; name: string }[];
-  tags: { id: string; name: string }[];
+  categories: { id: number; name: string }[];
+  tags: { id: number; name: string }[];
 }) {
   const router = useRouter();
   const [pending, startTransition] = React.useTransition();
@@ -118,7 +118,7 @@ export function ProductForm({
           name="categoryId"
           control={control}
           label="Category"
-          options={categories.map((c) => ({ value: c.id, label: c.name }))}
+          options={categories.map((c) => ({ value: String(c.id), label: c.name }))}
           allowEmpty
           emptyLabel="No category"
         />

@@ -3,7 +3,7 @@
 -- =============================================================================
 
 create table public.contact_messages (
-  id uuid primary key default gen_random_uuid(),
+  id bigint generated always as identity primary key,
   name text not null,
   email text not null,
   subject text,
@@ -39,7 +39,7 @@ create policy "contact_messages_admin_delete" on public.contact_messages
 
 -- ---------------------------------------------------------------------------
 create table public.faqs (
-  id uuid primary key default gen_random_uuid(),
+  id bigint generated always as identity primary key,
   question text not null,
   answer text not null,
   is_active boolean not null default true,

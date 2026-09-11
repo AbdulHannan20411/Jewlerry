@@ -6,9 +6,9 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { searchProducts } from "@/lib/products/queries";
 import { productFiltersSchema } from "@/lib/validations/products";
 import { Button } from "@/components/ui/button";
-import { SearchInput } from "@/components/admin/search-input";
-import { SortSelect } from "@/components/admin/sort-select";
-import { PaginationControls } from "@/components/admin/pagination-controls";
+import { SearchInput } from "@/components/shared/search-input";
+import { SortSelect } from "@/components/shared/sort-select";
+import { PaginationControls } from "@/components/shared/pagination-controls";
 import { ProductsTable } from "@/components/admin/products-table";
 
 export const metadata: Metadata = { title: "Products" };

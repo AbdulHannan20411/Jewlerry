@@ -159,7 +159,7 @@ grant execute on function public.lookup_email_for_login(text) to service_role;
 -- plus free-form metadata.
 -- ---------------------------------------------------------------------------
 create table public.audit_logs (
-  id uuid primary key default gen_random_uuid(),
+  id bigint generated always as identity primary key,
   actor_id uuid references public.profiles(id) on delete set null,
   action text not null,
   entity_type text not null,

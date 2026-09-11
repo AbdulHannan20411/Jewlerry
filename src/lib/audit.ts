@@ -11,7 +11,10 @@ export async function writeAuditLog(entry: {
   actorId: string | null;
   action: string;
   entityType: string;
-  entityId?: string | null;
+  // entity_id is a free-text column (not an FK) precisely so it can log
+  // either a bigint entity id or a uuid (profile) id without needing a
+  // union type threaded through every caller.
+  entityId?: string | number | null;
   metadata?: Record<string, Json>;
 }): Promise<void> {
   const admin = createAdminSupabaseClient();
@@ -19,7 +22,7 @@ export async function writeAuditLog(entry: {
     actor_id: entry.actorId,
     action: entry.action,
     entity_type: entry.entityType,
-    entity_id: entry.entityId ?? null,
+    entity_id: entry.entityId != null ? String(entry.entityId) : null,
     metadata: entry.metadata ?? {},
   });
 

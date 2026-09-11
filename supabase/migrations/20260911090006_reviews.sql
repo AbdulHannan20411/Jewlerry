@@ -4,10 +4,10 @@
 -- =============================================================================
 
 create table public.reviews (
-  id uuid primary key default gen_random_uuid(),
-  product_id uuid not null references public.products(id) on delete cascade,
+  id bigint generated always as identity primary key,
+  product_id bigint not null references public.products(id) on delete cascade,
   customer_id uuid not null references public.profiles(id) on delete cascade,
-  order_id uuid not null references public.orders(id) on delete cascade,
+  order_id bigint not null references public.orders(id) on delete cascade,
   rating smallint not null check (rating between 1 and 5),
   title text not null default '',
   comment text not null default '',
@@ -75,7 +75,7 @@ security definer
 set search_path = public
 as $$
 declare
-  v_product_id uuid := coalesce(new.product_id, old.product_id);
+  v_product_id bigint := coalesce(new.product_id, old.product_id);
 begin
   update public.products p
     set average_rating = coalesce((

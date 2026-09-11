@@ -18,7 +18,7 @@ async function uniqueSlug(
   supabase: SupabaseClient<Database>,
   table: "products" | "categories" | "tags",
   base: string,
-  excludeId?: string,
+  excludeId?: number,
 ): Promise<string> {
   const baseSlug = slugify(base) || "item";
   let candidate = baseSlug;
@@ -71,7 +71,7 @@ export async function createProduct(
 
 export async function updateProduct(
   supabase: SupabaseClient<Database>,
-  id: string,
+  id: number,
   input: ProductFormInput,
 ) {
   const { data: existing } = await supabase
@@ -117,7 +117,7 @@ export async function updateProduct(
   return { ok: true as const, product };
 }
 
-export async function deleteProduct(supabase: SupabaseClient<Database>, id: string) {
+export async function deleteProduct(supabase: SupabaseClient<Database>, id: number) {
   // Historical orders keep their own snapshot (name/price/image URL) in
   // order_items independent of this row, and order_items.product_id is
   // ON DELETE SET NULL — so a hard delete here never corrupts an order.
@@ -137,7 +137,7 @@ export async function deleteProduct(supabase: SupabaseClient<Database>, id: stri
 
 export async function addProductImage(
   supabase: SupabaseClient<Database>,
-  productId: string,
+  productId: number,
   image: { url: string; storagePath: string; altText: string },
 ) {
   const { data: existing } = await supabase
@@ -162,7 +162,7 @@ export async function addProductImage(
   return { ok: true as const };
 }
 
-export async function deleteProductImage(supabase: SupabaseClient<Database>, imageId: string) {
+export async function deleteProductImage(supabase: SupabaseClient<Database>, imageId: number) {
   const { data: image } = await supabase
     .from("product_images")
     .select("storage_path")
@@ -180,7 +180,7 @@ export async function deleteProductImage(supabase: SupabaseClient<Database>, ima
 
 export async function reorderProductImages(
   supabase: SupabaseClient<Database>,
-  orderedImageIds: string[],
+  orderedImageIds: number[],
 ) {
   await Promise.all(
     orderedImageIds.map((imageId, index) =>
@@ -209,7 +209,7 @@ export async function createCategory(
 
 export async function updateCategory(
   supabase: SupabaseClient<Database>,
-  id: string,
+  id: number,
   input: CategoryFormInput,
 ) {
   const { error } = await supabase
@@ -220,7 +220,7 @@ export async function updateCategory(
   return { ok: true as const };
 }
 
-export async function deleteCategory(supabase: SupabaseClient<Database>, id: string) {
+export async function deleteCategory(supabase: SupabaseClient<Database>, id: number) {
   const { error } = await supabase.from("categories").delete().eq("id", id);
   if (error) return { ok: false as const, error: error.message };
   return { ok: true as const };
@@ -242,7 +242,7 @@ export async function createTag(supabase: SupabaseClient<Database>, input: TagFo
 
 export async function updateTag(
   supabase: SupabaseClient<Database>,
-  id: string,
+  id: number,
   input: TagFormInput,
 ) {
   const { error } = await supabase.from("tags").update({ name: input.name }).eq("id", id);
@@ -250,7 +250,7 @@ export async function updateTag(
   return { ok: true as const };
 }
 
-export async function deleteTag(supabase: SupabaseClient<Database>, id: string) {
+export async function deleteTag(supabase: SupabaseClient<Database>, id: number) {
   const { error } = await supabase.from("tags").delete().eq("id", id);
   if (error) return { ok: false as const, error: error.message };
   return { ok: true as const };

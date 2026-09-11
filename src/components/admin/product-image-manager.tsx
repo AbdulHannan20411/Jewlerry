@@ -16,12 +16,12 @@ export function ProductImageManager({
   productId,
   initialImages,
 }: {
-  productId: string;
+  productId: number;
   initialImages: ProductImageRow[];
 }) {
   const [images, setImages] = React.useState(initialImages);
   const [uploading, setUploading] = React.useState(false);
-  const [pendingId, setPendingId] = React.useState<string | null>(null);
+  const [pendingId, setPendingId] = React.useState<number | null>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   async function handleFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
@@ -45,7 +45,7 @@ export function ProductImageManager({
     window.location.reload();
   }
 
-  async function handleDelete(imageId: string) {
+  async function handleDelete(imageId: number) {
     setPendingId(imageId);
     const result = await deleteProductImageAction(productId, imageId);
     setPendingId(null);

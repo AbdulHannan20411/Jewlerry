@@ -5,7 +5,7 @@ import type { Database, SearchProductsRow } from "@/types/database";
 import type { ProductFilters } from "@/lib/validations/products";
 
 export interface ProductListItem extends Omit<SearchProductsRow, "total_count"> {
-  tags: { id: string; name: string; slug: string }[];
+  tags: { id: number; name: string; slug: string }[];
 }
 
 export interface ProductListResult {
@@ -78,9 +78,9 @@ export async function searchProducts(
 
 async function batchFetchTags(
   supabase: SupabaseClient<Database>,
-  productIds: string[],
-): Promise<Map<string, { id: string; name: string; slug: string }[]>> {
-  const map = new Map<string, { id: string; name: string; slug: string }[]>();
+  productIds: number[],
+): Promise<Map<number, { id: number; name: string; slug: string }[]>> {
+  const map = new Map<number, { id: number; name: string; slug: string }[]>();
   if (productIds.length === 0) return map;
 
   const { data, error } = await supabase
@@ -94,8 +94,8 @@ async function batchFetchTags(
   }
 
   for (const row of data as unknown as {
-    product_id: string;
-    tags: { id: string; name: string; slug: string } | null;
+    product_id: number;
+    tags: { id: number; name: string; slug: string } | null;
   }[]) {
     if (!row.tags) continue;
     const list = map.get(row.product_id) ?? [];
@@ -106,8 +106,8 @@ async function batchFetchTags(
 }
 
 export interface ProductDetail {
-  id: string;
-  categoryId: string | null;
+  id: number;
+  categoryId: number | null;
   categoryName: string | null;
   name: string;
   slug: string;
@@ -119,8 +119,8 @@ export interface ProductDetail {
   averageRating: number;
   reviewCount: number;
   createdAt: string;
-  images: { id: string; url: string; altText: string; displayOrder: number }[];
-  tags: { id: string; name: string; slug: string }[];
+  images: { id: number; url: string; altText: string; displayOrder: number }[];
+  tags: { id: number; name: string; slug: string }[];
 }
 
 export async function getProductBySlug(
@@ -169,22 +169,22 @@ export async function getProductBySlug(
       displayOrder: img.display_order,
     })),
     tags: (
-      (tagLinks ?? []) as unknown as { tags: { id: string; name: string; slug: string } | null }[]
+      (tagLinks ?? []) as unknown as { tags: { id: number; name: string; slug: string } | null }[]
     )
       .map((t) => t.tags)
-      .filter((t): t is { id: string; name: string; slug: string } => t !== null),
+      .filter((t): t is { id: number; name: string; slug: string } => t !== null),
   };
 }
 
 export interface ProductImageRow {
-  id: string;
+  id: number;
   url: string;
   altText: string;
   displayOrder: number;
 }
 
 /** Product data shaped for the admin edit form + image manager, in one query pass. */
-export async function getProductForEdit(supabase: SupabaseClient<Database>, id: string) {
+export async function getProductForEdit(supabase: SupabaseClient<Database>, id: number) {
   const [{ data: product, error }, { data: tagLinks }, { data: images }] = await Promise.all([
     supabase.from("products").select("*").eq("id", id).single(),
     supabase.from("product_tags").select("tag_id").eq("product_id", id),
@@ -211,7 +211,7 @@ export async function getProductForEdit(supabase: SupabaseClient<Database>, id: 
   };
 }
 
-export async function getProductById(supabase: SupabaseClient<Database>, id: string) {
+export async function getProductById(supabase: SupabaseClient<Database>, id: number) {
   const { data, error } = await supabase.from("products").select("*").eq("id", id).single();
   if (error) return null;
   return data;

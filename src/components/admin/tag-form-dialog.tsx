@@ -26,7 +26,7 @@ export function TagFormDialog({
   defaultValues,
 }: {
   mode: "create" | "edit";
-  tagId?: string;
+  tagId?: number;
   defaultValues?: TagFormInput;
 }) {
   const [open, setOpen] = React.useState(false);

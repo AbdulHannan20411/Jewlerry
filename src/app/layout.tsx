@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Cormorant_Garamond } from "next/font/google";
 import { AppProviders } from "@/components/providers/app-providers";
+import { getSiteSettings } from "@/lib/settings/queries";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -35,7 +36,14 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  const settings = await getSiteSettings();
+  // Admin can disable dark mode site-wide; when off, every visitor (signed
+  // in or not) is forced to light regardless of their own OS/profile
+  // preference — but this never overwrites their stored preference, only
+  // the forcedTheme prop, so it reverts automatically if re-enabled.
+  const forcedTheme = settings?.dark_mode_enabled === false ? "light" : undefined;
+
   return (
     <html
       lang="en"
@@ -43,7 +51,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${geistSans.variable} ${geistMono.variable} ${cormorant.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col">
-        <AppProviders>{children}</AppProviders>
+        <AppProviders forcedTheme={forcedTheme}>{children}</AppProviders>
       </body>
     </html>
   );

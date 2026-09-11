@@ -21,12 +21,13 @@ as $$
 $$;
 
 create table public.orders (
-  id uuid primary key default gen_random_uuid(),
+  id bigint generated always as identity primary key,
   order_number text not null default public.generate_order_number(),
   invoice_number text not null default public.generate_invoice_number(),
   -- Never cascaded/nulled on customer deletion: accounts are soft-deleted
   -- (profiles.deleted_at) precisely so this FK — and the business record it
-  -- protects — always stays intact.
+  -- protects — always stays intact. Stays UUID: it points at profiles.id,
+  -- which is fixed to Supabase Auth's UUID user id.
   customer_id uuid not null references public.profiles(id) on delete restrict,
   status text not null default 'unconfirmed' check (
     status in ('unconfirmed', 'payment_pending', 'confirmed', 'in_process', 'delivered', 'completed', 'returned', 'cancelled')
@@ -65,9 +66,9 @@ create trigger orders_set_updated_at
 
 -- ---------------------------------------------------------------------------
 create table public.order_items (
-  id uuid primary key default gen_random_uuid(),
-  order_id uuid not null references public.orders(id) on delete cascade,
-  product_id uuid references public.products(id) on delete set null,
+  id bigint generated always as identity primary key,
+  order_id bigint not null references public.orders(id) on delete cascade,
+  product_id bigint references public.products(id) on delete set null,
   product_name_snapshot text not null,
   product_image_snapshot_url text,
   unit_price_snapshot numeric(12, 2) not null check (unit_price_snapshot >= 0),
@@ -81,8 +82,8 @@ create index order_items_product_idx on public.order_items (product_id);
 
 -- ---------------------------------------------------------------------------
 create table public.order_status_history (
-  id uuid primary key default gen_random_uuid(),
-  order_id uuid not null references public.orders(id) on delete cascade,
+  id bigint generated always as identity primary key,
+  order_id bigint not null references public.orders(id) on delete cascade,
   old_status text,
   new_status text not null,
   changed_by uuid references public.profiles(id) on delete set null,
@@ -139,7 +140,7 @@ create trigger orders_validate_status_transition
 -- request this particular transition — before invoking it.
 -- ---------------------------------------------------------------------------
 create or replace function public.change_order_status(
-  p_order_id uuid,
+  p_order_id bigint,
   p_new_status text,
   p_changed_by uuid,
   p_reason text default null
@@ -169,12 +170,12 @@ begin
 end;
 $$;
 
-revoke all on function public.change_order_status(uuid, text, uuid, text) from public;
-grant execute on function public.change_order_status(uuid, text, uuid, text) to service_role;
+revoke all on function public.change_order_status(bigint, text, uuid, text) from public;
+grant execute on function public.change_order_status(bigint, text, uuid, text) to service_role;
 
 -- ---------------------------------------------------------------------------
 -- create_order: the concurrency-safe checkout core.
---   p_items: jsonb array of { "product_id": uuid, "quantity": int }
+--   p_items: jsonb array of { "product_id": bigint, "quantity": int }
 -- Locks every referenced product row (in a fixed id order, to avoid
 -- deadlocking against another concurrent checkout), validates each is
 -- active with enough stock, computes the subtotal from *current*
@@ -182,6 +183,11 @@ grant execute on function public.change_order_status(uuid, text, uuid, text) to 
 -- site_settings, then decrements stock and writes order_items with frozen
 -- price/name/image snapshots. All-or-nothing: any failure rolls back the
 -- whole order, including the stock decrements.
+--
+-- The order row is inserted (letting its bigint identity auto-generate)
+-- only after pass 1 validates everything — unlike a client-generated UUID,
+-- an identity value can't be minted ahead of the INSERT, so the order
+-- didn't exist yet during validation anyway; this ordering costs nothing.
 -- ---------------------------------------------------------------------------
 create or replace function public.create_order(
   p_customer_id uuid,
@@ -205,7 +211,6 @@ declare
   v_shipping numeric(12, 2);
   v_currency text;
   v_order public.orders;
-  v_order_id uuid := gen_random_uuid();
 begin
   if p_items is null or jsonb_array_length(p_items) = 0 then
     raise exception 'ORDER_EMPTY' using errcode = '22023';
@@ -216,9 +221,9 @@ begin
 
   -- Pass 1: lock + validate every product, in a stable order, accumulate subtotal.
   for v_item in
-    select (elem ->> 'product_id')::uuid as product_id, (elem ->> 'quantity')::integer as quantity
+    select (elem ->> 'product_id')::bigint as product_id, (elem ->> 'quantity')::integer as quantity
     from jsonb_array_elements(p_items) as elem
-    order by (elem ->> 'product_id')::uuid
+    order by (elem ->> 'product_id')::bigint
   loop
     if v_item.product_id is null or v_item.quantity is null or v_item.quantity <= 0 then
       raise exception 'ORDER_INVALID_ITEM' using errcode = '22023';
@@ -241,17 +246,17 @@ begin
   end loop;
 
   insert into public.orders (
-    id, customer_id, status, subtotal, shipping_cost, total, currency_code,
+    customer_id, status, subtotal, shipping_cost, total, currency_code,
     customer_name, customer_phone, customer_email, shipping_address, shipping_city, shipping_notes
   ) values (
-    v_order_id, p_customer_id, 'unconfirmed', v_subtotal, v_shipping, v_subtotal + v_shipping,
+    p_customer_id, 'unconfirmed', v_subtotal, v_shipping, v_subtotal + v_shipping,
     coalesce(v_currency, 'PKR'), p_customer_name, p_customer_phone, p_customer_email,
     p_shipping_address, p_shipping_city, p_shipping_notes
   ) returning * into v_order;
 
   -- Pass 2: decrement stock + write frozen line-item snapshots.
   for v_item in
-    select (elem ->> 'product_id')::uuid as product_id, (elem ->> 'quantity')::integer as quantity
+    select (elem ->> 'product_id')::bigint as product_id, (elem ->> 'quantity')::integer as quantity
     from jsonb_array_elements(p_items) as elem
   loop
     select * into v_product from public.products where id = v_item.product_id;
@@ -264,14 +269,14 @@ begin
       order_id, product_id, product_name_snapshot, product_image_snapshot_url,
       unit_price_snapshot, quantity
     ) values (
-      v_order_id, v_product.id, v_product.name,
+      v_order.id, v_product.id, v_product.name,
       (select url from public.product_images where product_id = v_product.id order by display_order limit 1),
       v_product.price_after_discount, v_item.quantity
     );
   end loop;
 
   insert into public.order_status_history (order_id, old_status, new_status, changed_by, reason)
-  values (v_order_id, null, 'unconfirmed', p_customer_id, 'Order created');
+  values (v_order.id, null, 'unconfirmed', p_customer_id, 'Order created');
 
   return v_order;
 end;

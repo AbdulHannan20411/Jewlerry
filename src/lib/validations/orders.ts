@@ -1,8 +1,11 @@
 import { z } from "zod";
 import { PAYMENT_REJECTION_REASONS } from "@/constants";
 
+/** bigint identity PKs (everything except profile-linked uuid fields). */
+const id = () => z.number().int().positive();
+
 export const checkoutItemSchema = z.object({
-  productId: z.uuid(),
+  productId: id(),
   quantity: z.number().int().positive().max(999),
 });
 
@@ -18,8 +21,8 @@ export const checkoutSchema = z.object({
 export type CheckoutInput = z.infer<typeof checkoutSchema>;
 
 export const submitPaymentSchema = z.object({
-  orderId: z.uuid(),
-  paymentMethodId: z.uuid(),
+  orderId: id(),
+  paymentMethodId: id(),
   transactionReference: z.string().trim().max(200).optional(),
   note: z.string().trim().max(500).optional(),
   // The screenshot itself is validated separately (file type/size) in
@@ -29,7 +32,7 @@ export type SubmitPaymentInput = z.infer<typeof submitPaymentSchema>;
 
 export const reviewPaymentSchema = z
   .object({
-    paymentId: z.uuid(),
+    paymentId: id(),
     decision: z.enum(["approved", "rejected"]),
     rejectionReason: z.enum(PAYMENT_REJECTION_REASONS).optional(),
     rejectionNote: z.string().trim().max(500).optional(),
@@ -41,14 +44,14 @@ export const reviewPaymentSchema = z
 export type ReviewPaymentInput = z.infer<typeof reviewPaymentSchema>;
 
 export const requestReturnSchema = z.object({
-  orderId: z.uuid(),
+  orderId: id(),
   reason: z.string().trim().min(3, "Tell us why you'd like to return this order").max(500),
   notes: z.string().trim().max(1000).optional(),
 });
 export type RequestReturnInput = z.infer<typeof requestReturnSchema>;
 
 export const updateOrderStatusSchema = z.object({
-  orderId: z.uuid(),
+  orderId: id(),
   newStatus: z.enum([
     "unconfirmed",
     "payment_pending",

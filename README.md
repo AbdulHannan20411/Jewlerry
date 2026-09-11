@@ -21,6 +21,7 @@ This README is updated as each phase below completes. See
 | 2. Database (migrations, RLS, seed data) | ✅ Done — verified against a real local Postgres |
 | 3. Authentication & authorization | ✅ Done — verified end-to-end locally |
 | 4. Products (CRUD, images, tags, search, filters, stock) | ✅ Done — verified in a real browser (Playwright) |
+| 5. Storefront (home, product list, product detail, cart) | ✅ Done — verified in a real browser (Playwright) |
 | 5. Storefront (home, listing, detail, cart) | ⏳ Pending |
 | 6. Orders (checkout, statuses, history) | ⏳ Pending |
 | 7. Payments (methods, proof upload, approval) | ⏳ Pending |

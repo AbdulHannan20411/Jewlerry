@@ -19,7 +19,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { cn } from "@/lib/utils";
 
 export interface TagOption {
-  id: string;
+  id: number;
   name: string;
 }
 
@@ -41,10 +41,10 @@ export function TagMultiSelect<TFieldValues extends FieldValues>({
       name={name}
       control={control}
       render={({ field }) => {
-        const selectedIds: string[] = field.value ?? [];
+        const selectedIds: number[] = field.value ?? [];
         const selected = options.filter((o) => selectedIds.includes(o.id));
 
-        function toggle(id: string) {
+        function toggle(id: number) {
           const next = selectedIds.includes(id)
             ? selectedIds.filter((v) => v !== id)
             : [...selectedIds, id];

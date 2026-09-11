@@ -3,7 +3,7 @@
 -- =============================================================================
 
 create table public.banners (
-  id uuid primary key default gen_random_uuid(),
+  id bigint generated always as identity primary key,
   title text not null,
   description text,
   image_url text not null,

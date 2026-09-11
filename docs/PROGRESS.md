@@ -5,6 +5,133 @@ the way for anything the spec left ambiguous. Newest entries at the top.
 
 ---
 
+## Phase 5 — Storefront (home, product list, product detail, cart)
+
+**Date:** 2026-09-11
+
+- Moved `/account` and `/` into a new `(storefront)` route group so they
+  share `SiteHeader`/`SiteFooter` (account pages get the main nav — cart
+  icon, theme toggle, sign-in/account link — same as any other e-commerce
+  site); `(auth)`, `/admin`, and the system pages (`/forbidden`,
+  `/account-suspended`, etc.) deliberately keep their own minimal shells.
+- `store/cart-store.ts`: Zustand + `persist` (localStorage only, per Rule
+  7 — just `{ productId, quantity }`, never price/name/image). Gated
+  behind the same `useMounted()` hydration-safe pattern as the theme
+  toggle (server/first-client-render always sees an empty cart).
+- `lib/orders/queries.ts` (`refreshCartDetails`) + a public
+  `getCartDetailsAction`: Rule 8 — re-fetches current price/stock/name/
+  image for every cart line from the server, every time the cart page
+  loads. Lines that no longer exist or are inactive/out-of-stock are
+  flagged (not silently dropped); the cart client auto-clips any quantity
+  exceeding fresh stock and toasts that it did so.
+- `search_products` (Phase 4) now also powers the storefront: product
+  list page (search + tag/category/price/rating/in-stock filters + sort +
+  pagination, all URL params) and the home page's Featured/New/Sale rails.
+- Product detail page: image gallery, price/discount/stock display,
+  quantity-bounded add-to-cart, and a review summary + list using a new
+  `get_product_reviews` RPC (see below) — reading, not yet writing;
+  submission needs purchase eligibility, landing in Phase 10.
+- Banners (Phase 2 table) wired up for real: `getActiveBanners` filters to
+  `is_active` AND within `[start_date, end_date]`, feeding a small
+  auto-advancing carousel on the home page.
+- Built out `/contact` (store info from `site_settings` + a rate-limited
+  contact form writing to `contact_messages`) and `/faq` (accordion over
+  `faqs`) — not explicitly one of Phase 5's four pages, but the site
+  header/footer nav links to both unconditionally, so leaving them as
+  dead links wasn't acceptable; both were quick given the tables/RLS
+  already existed from Phase 2.
+- New migration 0014, `get_product_reviews`: profiles RLS deliberately
+  blocks reading another customer's profile row, but a public review list
+  needs *some* display name for its author. Rather than loosen profiles
+  RLS, added a narrow `SECURITY DEFINER` RPC that exposes only a computed
+  display name (never email/phone/role) for a product's visible reviews.
+- Root layout now reads `site_settings.dark_mode_enabled` (via a
+  `React.cache()`-wrapped `getSiteSettings()`, deduping what would
+  otherwise be 3 separate queries per page — layout, header, footer) and
+  passes `forcedTheme="light"` down when the admin has disabled dark mode
+  site-wide — the Phase 1 `AppProviders`/`ThemeProvider` plumbing for this
+  existed already, just wasn't wired up yet. Known tradeoff: this makes
+  every storefront page dynamic (no static prerendering), since the root
+  layout now does a DB read on every request; acceptable for now, worth
+  revisiting with a time-based cache if it matters later.
+
+### Verified live (Playwright)
+
+Home → products list (search "ring", tag/category/price/rating filters,
+sort) → product detail → add to cart → cart page (correct price/subtotal/
+shipping/total) → contact → FAQ, zero real console errors. See the bigint
+migration entry above for the full detail — the first verification run
+surfaced the seed-data UUID bug that migration fixes.
+
+---
+
+## Architecture change — bigint identity PKs (except profiles.id)
+
+**Date:** 2026-09-11
+
+Per explicit user direction, every table's primary key was converted from
+`uuid default gen_random_uuid()` to `bigint generated always as identity`,
+with matching foreign keys — **except** `profiles.id`, which stays `uuid`
+because it's a 1:1 FK to Supabase Auth's `auth.users.id` (always UUID,
+not something this app controls), and therefore every FK that points at
+profiles (`customer_id`, `actor_id`, `user_id`, `changed_by`,
+`reviewed_by`, ...) stays `uuid` too. Everything else — products,
+categories, tags, orders, order_items, reviews, payments, payment_methods,
+notifications, banners, contact_messages, faqs, audit_logs — is now
+`bigint`.
+
+All 14 existing migrations were edited in place (they had only ever been
+applied to a local throwaway Docker instance, never a real project, so
+this is "fix the migration before first deploy," not "patch a deployed
+schema"). Notable knock-on effects:
+
+- `create_order`'s two-pass logic could no longer pre-generate an id
+  (`gen_random_uuid()`) before the `INSERT` the way it did for UUIDs — a
+  `bigint generated always as identity` value doesn't exist until the row
+  is actually inserted. Restructured so the order row is inserted (letting
+  the identity auto-generate) right after pass-1 validation, and pass-2
+  (stock decrement + order_items) uses the returned `v_order.id`.
+- `seed.sql` got simpler: explicit small integers (`1, 2, 3, ...` via
+  `overriding system value`) instead of hand-typed UUID literals, with
+  `setval()` calls at the end to keep each identity sequence ahead of the
+  seeded rows.
+- Added a doc comment to `database.ts` and `seed.sql` explaining *why*
+  IDs split this way, so it isn't "fixed" back to all-UUID or all-bigint
+  by a future edit that doesn't know about the Supabase Auth constraint.
+
+### A real bug this surfaced (caught live, not by typecheck)
+
+Before this change, `seed.sql` used human-readable placeholder UUIDs like
+`c0000000-0000-0000-0000-000000000001` — valid enough for Postgres's
+`uuid` type (which barely validates format) but **not** valid per
+RFC-4122 (the version nibble must be 1-8; these all had `0`). Zod's
+`z.uuid()` — used in `getCartDetailsAction`'s validation — correctly
+rejected them. This meant "Add to cart" silently failed for every seeded
+product (toast said "Invalid cart data," cart page showed empty) while
+real `gen_random_uuid()`-generated rows worked fine — exactly the kind of
+bug that only shows up with seed data and never in production. Fully
+mooted by the bigint switch (plain integers have no such validity
+question), but worth remembering: **never hand-type UUID literals**;
+generate them (`crypto.randomUUID()` / `gen_random_uuid()`).
+
+### Verified live, twice (once per major flow)
+
+Reset the local DB, re-ran the full migration set + updated seed
+end-to-end successfully, then re-ran both Playwright verification flows
+from scratch:
+- **Storefront**: home → products list/search/filters → product detail →
+  add to cart → cart page (correct name/price/qty/subtotal/shipping/total
+  with the new bigint product id) → contact → FAQ. Zero real console
+  errors (one hydration warning traced to a Playwright/headless-Chromium
+  `caret-color` DOM-mutation artifact from `.fill()` calls, not app code).
+- **Admin**: sign in → forced password change → products table (bigint
+  ids) → edit page at `/admin/products/1` (clean integer in the URL) →
+  create a new product → lands on `/admin/products/13` (identity sequence
+  correctly continuing past the 12 seeded rows) → delete. Zero console
+  errors.
+
+---
+
 ## Phase 4 — Products (CRUD, images, tags, categories, search/filter/sort/stock)
 
 **Date:** 2026-09-11

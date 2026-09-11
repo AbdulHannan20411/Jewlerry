@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import { requireAdmin } from "@/lib/permissions";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { searchTags } from "@/lib/products/queries";
-import { SearchInput } from "@/components/admin/search-input";
-import { PaginationControls } from "@/components/admin/pagination-controls";
+import { SearchInput } from "@/components/shared/search-input";
+import { PaginationControls } from "@/components/shared/pagination-controls";
 import { TagFormDialog } from "@/components/admin/tag-form-dialog";
 import { TagsTable } from "@/components/admin/tags-table";
 
