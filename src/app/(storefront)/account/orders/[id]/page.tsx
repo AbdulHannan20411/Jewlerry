@@ -6,10 +6,13 @@ import { ImageOff } from "lucide-react";
 import { requireUser } from "@/lib/permissions";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getOrderById } from "@/lib/orders/queries";
+import { getPaymentsForOrder } from "@/lib/payments/queries";
 import { canCustomerTransition } from "@/lib/orders/transitions";
 import { OrderStatusBadge } from "@/components/shared/order-status-badge";
+import { PaymentStatusBadge } from "@/components/shared/payment-status-badge";
 import { OrderTimeline } from "@/components/storefront/order-timeline";
 import { CancelOrderButton, RequestReturnButton } from "@/components/storefront/order-actions";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { formatCurrency, formatDate } from "@/lib/utils";
@@ -32,6 +35,12 @@ export default async function AccountOrderDetailPage({
 
   const canCancel = canCustomerTransition(order.status, "cancelled");
   const canReturn = canCustomerTransition(order.status, "returned");
+
+  const payments = await getPaymentsForOrder(supabase, order.id);
+  const latestPayment = payments[0] ?? null;
+  const canSubmitPayment =
+    ["unconfirmed", "payment_pending"].includes(order.status) &&
+    (!latestPayment || latestPayment.status === "rejected");
 
   return (
     <div className="mx-auto w-full max-w-4xl px-4 py-8">
@@ -109,6 +118,38 @@ export default async function AccountOrderDetailPage({
                 {order.shippingCity ? `, ${order.shippingCity}` : ""}
               </p>
               {order.shippingNotes && <p>Note: {order.shippingNotes}</p>}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Payment</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {latestPayment ? (
+                <div className="flex items-center justify-between text-sm">
+                  <div>
+                    <p className="text-foreground">
+                      {formatCurrency(latestPayment.amount, order.currencyCode)} via{" "}
+                      {latestPayment.methodName ?? "—"}
+                    </p>
+                    <p className="text-xs text-muted-foreground">Submitted {formatDate(latestPayment.createdAt)}</p>
+                    {latestPayment.status === "rejected" && latestPayment.rejectionReason && (
+                      <p className="mt-1 text-xs text-destructive">Rejected: {latestPayment.rejectionReason}</p>
+                    )}
+                  </div>
+                  <PaymentStatusBadge status={latestPayment.status} />
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">No payment submitted yet.</p>
+              )}
+              {canSubmitPayment && (
+                <Button asChild size="sm">
+                  <Link href={`/account/orders/${order.id}/pay`}>
+                    {latestPayment ? "Submit a new payment" : "Proceed to payment"}
+                  </Link>
+                </Button>
+              )}
             </CardContent>
           </Card>
 

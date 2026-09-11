@@ -13,7 +13,8 @@ export const paymentMethodFormSchema = z.object({
   swiftCode: z.string().trim().max(20).optional(),
   branchCode: z.string().trim().max(20).optional(),
 });
-export type PaymentMethodFormInput = z.infer<typeof paymentMethodFormSchema>;
+export type PaymentMethodFormInput = z.output<typeof paymentMethodFormSchema>;
+export type PaymentMethodFormRawInput = z.input<typeof paymentMethodFormSchema>;
 
 export const bannerFormSchema = z.object({
   title: z.string().trim().min(2).max(200),

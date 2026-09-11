@@ -5,6 +5,77 @@ the way for anything the spec left ambiguous. Newest entries at the top.
 
 ---
 
+## Phase 7 — Payments (methods, proof upload, admin approval/rejection)
+
+**Date:** 2026-09-11
+
+- `lib/payments/{queries,mutations,actions}.ts`: `getPaymentMethods`/
+  `getPaymentMethodById` (joins `payment_method_details` for SWIFT/branch
+  code/QR), `searchPayments`/`getPaymentById`/`getPaymentsForOrder` (the
+  last one returns every attempt for an order, not just the latest — a
+  rejected submission can be followed by a new one). `submitPaymentRpc`/
+  `reviewPaymentRpc` are thin wrappers around the Phase 2 `submit_payment`/
+  `review_payment` SQL functions; `createPaymentMethodAction`/
+  `updatePaymentMethodAction`/`deletePaymentMethodAction` are plain admin
+  CRUD (not RPC-gated — only `payments` rows themselves are RPC-only).
+- `lib/storage/payment-proofs.ts`: upload/signed-URL helpers for the
+  private `payment-proofs` bucket. Upload uses the *caller's own* session
+  client (not service-role) so `storage.objects` RLS is actually exercised
+  — a customer can only ever write into `{their own uid}/...`, structurally.
+  Admin review reads back via a short-lived (5 min) signed URL, never a
+  public one.
+- Customer flow: order detail page shows the latest payment attempt +
+  status; a "Proceed to payment" / "Submit a new payment" (after a
+  rejection) button links to `/account/orders/[id]/pay` —  method picker
+  (with that method's account/instructions shown inline), optional
+  transaction reference/note, required screenshot upload.
+- Admin flow: `/admin/payments` (status-filterable list) and
+  `/admin/payments/[id]` — screenshot viewer + Approve/Reject (reject
+  requires a reason from `PAYMENT_REJECTION_REASONS`). `/admin/payment-methods`
+  is plain dialog-based CRUD, same pattern as Tags/Categories. Both the
+  customer and admin order-detail pages also show a compact payment-status
+  card/list linking to the review page.
+
+### Two real bugs caught by live verification (not by typecheck/build)
+
+- `next/image` only allowlisted the Supabase storage host for
+  `/storage/v1/object/public/**` — payment screenshots are deliberately
+  never public, so the admin review page's signed URL (`/object/sign/**`)
+  was silently rejected. Added a second `remotePatterns` entry for the
+  `sign` path, and derived the protocol (`http`/`https`) from
+  `NEXT_PUBLIC_SUPABASE_URL` instead of hardcoding `https` — local dev
+  talks to Supabase over plain http (`127.0.0.1:54321`).
+- Next's image optimizer separately refuses to fetch from a private/local
+  IP by default (SSRF hardening) — blocks local Supabase entirely
+  regardless of the allowlist. Fixed with `images.dangerouslyAllowLocalIP`,
+  gated to `NODE_ENV === "development"` (the hosted project is a public
+  HTTPS domain, so production never needs this).
+
+Also (not a bug, expected behavior): the Phase 3 login rate limiter
+(5 attempts / 5 min per IP+identifier) tripped partway through repeated
+Playwright re-runs against the same admin account — confirms it's working
+as designed, just needed clearing (`rate_limit_counters`) between test
+iterations.
+
+### Verified live (Playwright), both outcomes
+
+Admin: create/edit/delete a payment method → payments list. Customer:
+sign in → add to cart → checkout (new `unconfirmed` order) → submit
+payment (method + reference + screenshot upload) → order shows "Pending
+review". Admin: review page renders the screenshot and details →
+**Approve** → payment row `approved`, order transitions to `confirmed`
+(verified in the DB directly). Separately, full **reject** path: reject
+with a reason + note → payment `rejected`, order reverts to `unconfirmed`,
+customer's order page shows the rejection reason and a "Submit a new
+payment" CTA. Zero console/page errors across both runs.
+
+**Next:** Phase 8 — Notifications & email. User has provided Gmail SMTP
+credentials (app password) for this phase instead of/alongside Resend —
+to be wired into `.env.local` only (never committed) when this phase
+starts.
+
+---
+
 ## Phase 6 — Orders (checkout, creation, statuses, history)
 
 **Date:** 2026-09-11

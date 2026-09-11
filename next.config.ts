@@ -1,11 +1,15 @@
 import type { NextConfig } from "next";
 
-// Derive the Supabase project hostname from the URL so next/image is
-// allowed to optimize images served from Supabase Storage's public buckets
-// (product images, banners, avatars). Payment proofs are never served this
-// way — they stay behind signed URLs fetched server-side.
+// Derive the Supabase project host/protocol from the URL so next/image is
+// allowed to optimize images served from Supabase Storage — both public
+// buckets (product images, banners, avatars) and the short-lived signed
+// URLs used for the private payment-proofs bucket (admin payment review).
+// Protocol is derived too (not hardcoded to https) since local dev talks to
+// Supabase over plain http (127.0.0.1:54321).
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseHostname = supabaseUrl ? new URL(supabaseUrl).hostname : undefined;
+const supabaseParsedUrl = supabaseUrl ? new URL(supabaseUrl) : undefined;
+const supabaseHostname = supabaseParsedUrl?.hostname;
+const supabaseProtocol: "http" | "https" = supabaseParsedUrl?.protocol === "http:" ? "http" : "https";
 
 const nextConfig: NextConfig = {
   typedRoutes: true,
@@ -18,13 +22,23 @@ const nextConfig: NextConfig = {
   },
   images: {
     qualities: [60, 75, 90],
+    // Next's image optimizer refuses to fetch from private/local IPs by
+    // default (SSRF hardening) — local Supabase serves images from
+    // 127.0.0.1, so this only needs relaxing in development. The hosted
+    // Supabase project used in production is a public HTTPS domain.
+    ...(process.env.NODE_ENV === "development" ? { dangerouslyAllowLocalIP: true } : {}),
     remotePatterns: [
       ...(supabaseHostname
         ? [
             {
-              protocol: "https" as const,
+              protocol: supabaseProtocol,
               hostname: supabaseHostname,
               pathname: "/storage/v1/object/public/**",
+            },
+            {
+              protocol: supabaseProtocol,
+              hostname: supabaseHostname,
+              pathname: "/storage/v1/object/sign/**",
             },
           ]
         : []),

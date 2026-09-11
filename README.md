@@ -23,9 +23,7 @@ This README is updated as each phase below completes. See
 | 4. Products (CRUD, images, tags, search, filters, stock) | ✅ Done — verified in a real browser (Playwright) |
 | 5. Storefront (home, product list, product detail, cart) | ✅ Done — verified in a real browser (Playwright) |
 | 6. Orders (checkout, statuses, history) | ✅ Done — verified in a real browser (Playwright) |
-| 5. Storefront (home, listing, detail, cart) | ⏳ Pending |
-| 6. Orders (checkout, statuses, history) | ⏳ Pending |
-| 7. Payments (methods, proof upload, approval) | ⏳ Pending |
+| 7. Payments (methods, proof upload, approval) | ✅ Done — verified in a real browser (Playwright) |
 | 8. Notifications & email | ⏳ Pending |
 | 9. Invoices (PDF) | ⏳ Pending |
 | 10. Reviews | ⏳ Pending |

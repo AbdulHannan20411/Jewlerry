@@ -6,8 +6,11 @@ import { ImageOff } from "lucide-react";
 import { requireAdmin } from "@/lib/permissions";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getOrderById } from "@/lib/orders/queries";
+import { getPaymentsForOrder } from "@/lib/payments/queries";
 import { OrderStatusControl } from "@/components/admin/order-status-control";
 import { OrderTimeline } from "@/components/storefront/order-timeline";
+import { PaymentStatusBadge } from "@/components/shared/payment-status-badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { formatCurrency, formatDate } from "@/lib/utils";
@@ -27,6 +30,7 @@ export default async function AdminOrderDetailPage({
   const supabase = await createServerSupabaseClient();
   const order = await getOrderById(supabase, orderId);
   if (!order) notFound();
+  const payments = await getPaymentsForOrder(supabase, order.id);
 
   return (
     <div className="max-w-4xl space-y-6">
@@ -115,6 +119,34 @@ export default async function AdminOrderDetailPage({
                 {order.shippingCity ? `, ${order.shippingCity}` : ""}
               </p>
               {order.shippingNotes && <p>Note: {order.shippingNotes}</p>}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Payments</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {payments.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No payment submitted yet.</p>
+              ) : (
+                payments.map((payment) => (
+                  <div key={payment.id} className="flex items-center justify-between text-sm">
+                    <div>
+                      <p className="text-foreground">
+                        {formatCurrency(payment.amount, order.currencyCode)} via {payment.methodName ?? "—"}
+                      </p>
+                      <p className="text-xs text-muted-foreground">Submitted {formatDate(payment.createdAt)}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <PaymentStatusBadge status={payment.status} />
+                      <Button asChild variant="ghost" size="sm">
+                        <Link href={`/admin/payments/${payment.id}`}>Review</Link>
+                      </Button>
+                    </div>
+                  </div>
+                ))
+              )}
             </CardContent>
           </Card>
 
