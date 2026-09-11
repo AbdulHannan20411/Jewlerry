@@ -244,7 +244,17 @@ export interface Database {
           updated_at: string;
         };
         Insert: never; // orders are only ever created via the create_order RPC
-        Update: never; // status changes only via the change_order_status RPC
+        // `status` itself only ever changes via the change_order_status RPC
+        // (which the DB trigger enforces regardless) — but these snapshot/
+        // reason fields are plain columns the service-role client sets
+        // directly alongside a status-changing RPC call, e.g. recording
+        // *why* an order was cancelled/returned.
+        Update: Partial<
+          Pick<
+            Database["public"]["Tables"]["orders"]["Row"],
+            "cancelled_reason" | "return_reason" | "return_notes" | "returned_at"
+          >
+        >;
         Relationships: [];
       };
       order_items: {

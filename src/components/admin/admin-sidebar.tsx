@@ -3,21 +3,22 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, Package, Tags, Settings } from "lucide-react";
+import { LayoutDashboard, Package, Tags, ShoppingCart, Settings } from "lucide-react";
 import { signOutAction } from "@/lib/auth/actions";
 import { Button } from "@/components/ui/button";
 
 /**
- * Grows as each admin section ships (Orders/Payments in Phase 6-7,
- * Customers/Reviews/Banners/Reports/Notifications/Contact/FAQs in Phase
- * 11) — intentionally short right now rather than linking to pages that
- * don't exist yet. Categories is deliberately not here (not in the spec's
+ * Grows as each admin section ships (Payments in Phase 7, Customers/
+ * Reviews/Banners/Reports/Notifications/Contact/FAQs in Phase 11) —
+ * intentionally short right now rather than linking to pages that don't
+ * exist yet. Categories is deliberately not here (not in the spec's
  * sidebar list) — it's reachable from the Products page instead.
  */
 const links = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/products", label: "Products", icon: Package },
   { href: "/admin/tags", label: "Tags", icon: Tags },
+  { href: "/admin/orders", label: "Orders", icon: ShoppingCart },
   { href: "/admin/settings", label: "Settings", icon: Settings },
 ] as const;
 

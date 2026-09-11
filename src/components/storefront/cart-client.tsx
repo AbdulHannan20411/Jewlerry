@@ -3,7 +3,6 @@
 import * as React from "react";
 import Link from "next/link";
 import Image from "next/image";
-import type { Route } from "next";
 import { toast } from "sonner";
 import { Minus, Plus, X, ImageOff, ShoppingBag } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -225,8 +224,7 @@ export function CartClient({
           </Button>
         ) : (
           <Button asChild className="w-full">
-            {/* /checkout ships in the very next phase (order creation) */}
-            <Link href={"/checkout" as Route}>Proceed to checkout</Link>
+            <Link href="/checkout">Proceed to checkout</Link>
           </Button>
         )}
       </div>

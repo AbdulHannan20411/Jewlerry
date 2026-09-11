@@ -9,14 +9,19 @@ export const checkoutItemSchema = z.object({
   quantity: z.number().int().positive().max(999),
 });
 
-export const checkoutSchema = z.object({
-  items: z.array(checkoutItemSchema).min(1, "Your cart is empty"),
+/** Just the form fields — items are computed from cart/stock state at submit time, never a tracked RHF field. */
+export const checkoutDeliverySchema = z.object({
   customerName: z.string().trim().min(2, "Enter the recipient's name").max(200),
   customerPhone: z.string().trim().min(7, "Enter a valid phone number").max(20),
   customerEmail: z.email("Enter a valid email address"),
   shippingAddress: z.string().trim().min(5, "Enter a delivery address").max(500),
   shippingCity: z.string().trim().max(100).optional(),
   shippingNotes: z.string().trim().max(500).optional(),
+});
+export type CheckoutDeliveryInput = z.infer<typeof checkoutDeliverySchema>;
+
+export const checkoutSchema = checkoutDeliverySchema.extend({
+  items: z.array(checkoutItemSchema).min(1, "Your cart is empty"),
 });
 export type CheckoutInput = z.infer<typeof checkoutSchema>;
 

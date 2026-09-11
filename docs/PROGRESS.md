@@ -5,6 +5,76 @@ the way for anything the spec left ambiguous. Newest entries at the top.
 
 ---
 
+## Phase 6 — Orders (checkout, creation, statuses, history)
+
+**Date:** 2026-09-11
+
+- `lib/orders/transitions.ts`: the app-layer mirror of the DB trigger's
+  transition table, plus two narrower rulesets on top of it —
+  `canCustomerTransition` (Rule 5: a customer can only ever cancel
+  pre-shipment or request a return post-delivery, never self-advance to
+  confirmed/processing/delivered/completed) and `canAdminTransition`
+  (excludes the transitions that must only ever happen as a side effect of
+  an actual payment record — `unconfirmed -> payment_pending` needs a real
+  `submit_payment` row to review, `payment_pending -> confirmed/
+  unconfirmed` needs `review_payment`'s audit trail — never a bare manual
+  status edit for either). `adminNextStatuses()` drives which buttons the
+  admin order page actually offers. Unit-tested (18 new cases).
+- `lib/orders/mutations.ts`: thin RPC wrappers for `create_order` /
+  `change_order_status`, plus `friendlyCreateOrderError()` translating the
+  RPC's structured exception strings (`INSUFFICIENT_STOCK:id:name:qty`,
+  `PRODUCT_NOT_FOUND:id`, `ORDER_EMPTY`) into customer-facing messages.
+- `lib/orders/actions.ts`: `createOrderAction` (checkout — requires
+  sign-in, since `orders.customer_id` is a NOT NULL FK, so there's no
+  guest checkout in this schema), `cancelOrderAction` /
+  `requestReturnAction` (customer self-service, transition-checked),
+  `updateOrderStatusAction` (admin, transition-checked + audited). Order
+  mutations beyond the pure status change (`cancelled_reason`,
+  `return_reason`/`return_notes`/`returned_at`) are separate service-role
+  `.update()` calls alongside the `change_order_status` RPC call — added a
+  narrow `orders.Update` type (just those four columns, explicitly
+  excluding `status`) so this stays structurally safe without needing yet
+  another RPC.
+- Checkout (`/checkout`): delivery form + live order review (re-fetched
+  stock/price, same as the cart page) + summary; `createOrderAction`
+  clears the cart and routes straight to the new order's detail page on
+  success.
+- Customer order history (`/account/orders`, `/account/orders/[id]`):
+  paginated list, detail page with itemized total, delivery info, and a
+  timeline built directly from `order_status_history` (which — since it
+  only ever contains transitions that actually happened — needs no
+  filtering to satisfy "only show stages that have happened"). Cancel/
+  return-request buttons appear only when `canCustomerTransition` allows it.
+- Admin orders (`/admin/orders`, `/admin/orders/[id]`): searchable
+  (order/invoice number) + status-filterable table; detail page's
+  `OrderStatusControl` renders exactly `adminNextStatuses()` as buttons,
+  each opening a reason dialog before confirming.
+- Shared `OrderStatusBadge` (8-status color mapping) and a generic
+  `FilterSelect` (URL-param-driven, joining `SearchInput`/`SortSelect`/
+  `PaginationControls` as reusable admin+storefront table controls).
+
+### Verified live (Playwright): the full acceptance-criteria customer loop, so far
+
+Sign up → sign in → browse → add to cart → checkout → **place order**
+(`create_order` RPC, sequential `ORD-2026-000001`/`INV-2026-000001`) →
+order appears in "My Orders" → **admin sees it in `/admin/orders`** →
+admin opens it → status control offers exactly the right next steps →
+change status → history updates. Zero console errors.
+
+That run caught a real design gap, fixed before commit: the admin status
+control initially also offered "Payment Pending" as a manual move from
+Unconfirmed — technically valid per the raw transition table, but wrong,
+since nothing would back that status with an actual payment row for
+admin to later review. Added `unconfirmed -> payment_pending` to
+`canAdminTransition`'s exclusion list (alongside the pre-existing
+`payment_pending -> confirmed/unconfirmed` exclusion) so both
+payment-related transitions are exclusively RPC-driven, never a manual
+status edit.
+
+**Next:** Phase 7 — Payments (methods, proof upload, admin approval/rejection).
+
+---
+
 ## Hosted Supabase project deployed
 
 **Date:** 2026-09-11

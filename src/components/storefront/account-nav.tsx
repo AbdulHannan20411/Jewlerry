@@ -3,13 +3,14 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { User, ShieldCheck } from "lucide-react";
+import { User, ShieldCheck, Package } from "lucide-react";
 
-// Extended in later phases as each area ships (orders in Phase 6,
-// notifications in Phase 8, reviews in Phase 10) — kept short here rather
-// than linking to pages that don't exist yet.
+// Extended in later phases as each area ships (notifications in Phase 8,
+// reviews in Phase 10) — kept short here rather than linking to pages
+// that don't exist yet.
 const links = [
   { href: "/account", label: "Profile", icon: User },
+  { href: "/account/orders", label: "Orders", icon: Package },
   { href: "/account/security", label: "Security", icon: ShieldCheck },
 ] as const;
 
@@ -22,7 +23,8 @@ export function AccountNav({ fullName }: { fullName: string }) {
         {fullName}
       </p>
       {links.map((link) => {
-        const active = pathname === link.href;
+        const active =
+          link.href === "/account" ? pathname === link.href : pathname.startsWith(link.href);
         const Icon = link.icon;
         return (
           <Link
