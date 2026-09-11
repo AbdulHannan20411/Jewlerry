@@ -24,7 +24,7 @@ This README is updated as each phase below completes. See
 | 5. Storefront (home, product list, product detail, cart) | ✅ Done — verified in a real browser (Playwright) |
 | 6. Orders (checkout, statuses, history) | ✅ Done — verified in a real browser (Playwright) |
 | 7. Payments (methods, proof upload, approval) | ✅ Done — verified in a real browser (Playwright) |
-| 8. Notifications & email | ⏳ Pending |
+| 8. Notifications & email | ✅ Done — verified in a real browser (Playwright) + real Gmail SMTP send |
 | 9. Invoices (PDF) | ⏳ Pending |
 | 10. Reviews | ⏳ Pending |
 | 11. Admin (dashboard, reports, settings, banners, FAQs, contact) | ⏳ Pending |
@@ -34,7 +34,7 @@ This README is updated as each phase below completes. See
 
 - **Frontend**: Next.js 16 (App Router, Turbopack), TypeScript, Tailwind CSS v4, shadcn/ui (Radix), Lucide icons, React Hook Form + Zod, TanStack Table, Recharts
 - **Backend**: Next.js Route Handlers + Server Actions + Server Components, Supabase (Postgres, Auth, Storage, RLS)
-- **Email**: Resend (dev-mode console transport when `RESEND_API_KEY` is unset)
+- **Email**: SMTP via Nodemailer (e.g. Gmail with an app password) — dev-mode console/log transport when `SMTP_HOST`/`SMTP_USER`/`SMTP_PASSWORD` are unset
 - **PDF invoices**: `@react-pdf/renderer` (server-side)
 - **Cart state**: Zustand, persisted to `localStorage` only — never the database
 - **Testing**: Vitest + Testing Library

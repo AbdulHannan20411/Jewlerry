@@ -6,6 +6,7 @@ import { getSiteSettings } from "@/lib/settings/queries";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { CartBadge } from "@/components/layout/cart-badge";
 import { MobileNav } from "@/components/layout/mobile-nav";
+import { NotificationBell } from "@/components/layout/notification-bell";
 
 const NAV_LINKS = [
   { href: "/", label: "Home" },
@@ -60,6 +61,7 @@ export async function SiteHeader() {
           >
             <User className="size-5" />
           </Link>
+          <NotificationBell />
           <CartBadge />
         </div>
       </div>

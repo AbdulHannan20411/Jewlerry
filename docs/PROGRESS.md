@@ -5,6 +5,78 @@ the way for anything the spec left ambiguous. Newest entries at the top.
 
 ---
 
+## Phase 8 — Notifications & email
+
+**Date:** 2026-09-11
+
+- **Email switched from the originally planned Resend to SMTP (Nodemailer)**:
+  the user provided real Gmail SMTP credentials (an app password) mid-build
+  instead of a Resend API key, so `lib/email/send.ts` wraps
+  `nodemailer.createTransport` (lazily built, cached at module scope) rather
+  than the Resend SDK. `SMTP_HOST`/`SMTP_PORT`/`SMTP_USER`/`SMTP_PASSWORD`
+  replace `RESEND_API_KEY` in `lib/env.ts`/`.env.example`. When unset, mails
+  are logged to the server console instead of sent — same dev-safe default
+  as before, just a different transport underneath. A failed send is caught
+  and logged, never thrown — a notification email must never fail the
+  order/payment action that triggered it.
+- `lib/email/templates.ts`: one shared inline-styled HTML layout (email
+  clients strip `<style>` tags) + a template function per event: order
+  confirmation, order status changed, payment submitted/approved/rejected
+  (customer-facing), new-order/new-payment-to-review (admin-facing).
+- `lib/notifications/{queries,mutations,actions}.ts`: the in-app
+  `notifications` table (Phase 2 schema) — list + unread-count summary,
+  mark-one/mark-all read, and an admin broadcast (`sendNotificationAction`,
+  single/selected/all-customers) using the `sendNotificationSchema`
+  already defined in Phase 1's validations. All notification writes use
+  the service-role client — `notifications_insert_admin`'s RLS policy only
+  covers an admin's *own* session writing directly, not the normal
+  system-triggered path.
+- `lib/notifications/events.ts`: the single integration point between
+  order/payment business logic and both side effects (in-app row + email)
+  — `notifyOrderCreated`, `notifyOrderStatusChanged`, `notifyPaymentSubmitted`,
+  `notifyPaymentApproved`, `notifyPaymentRejected`. Wired into
+  `lib/orders/actions.ts` (createOrderAction, cancelOrderAction,
+  requestReturnAction, updateOrderStatusAction) and `lib/payments/actions.ts`
+  (submitPaymentAction, reviewPaymentAction). Order-status notifications are
+  deliberately *not* sent for the `unconfirmed ↔ payment_pending ↔ confirmed`
+  transitions the payment RPCs drive — those already get their own
+  dedicated payment-submitted/approved/rejected messaging, so a customer
+  never gets two overlapping emails for one event.
+- UI: a `NotificationBell` (server component, renders nothing signed-out) +
+  `NotificationDropdown` (client) in both the storefront header and the
+  admin layout — unread badge, latest 5, mark-read on click, "mark all
+  read". Full paginated list at `/account/notifications`
+  (`NotificationList`, typed icon per `NotificationTypeValue`).
+- All independent notification/email dispatches within one event now run
+  concurrently (`Promise.all`), not sequentially — a real SMTP send takes
+  real network seconds, and this sits on the critical path of the
+  Server Action that awaits it (a single customer+admin order-created
+  event was ~5s sequential; live-tested this is the right fix, not a
+  premature optimization). Still fully synchronous/awaited overall, which
+  is a known latency tradeoff worth revisiting in Phase 12 (background
+  job / `waitUntil` on serverless) if it matters at real scale.
+
+### Verified live — both with the local dev transport and the user's real Gmail SMTP
+
+Confirmed the exact Gmail credentials work by sending one real email
+directly via Nodemailer (accepted by Gmail, `250 2.0.0 OK`) before wiring
+anything else — cheapest way to isolate "are the credentials right" from
+"is the app's plumbing right." Then, restarting the dev server with the
+real SMTP env vars (no dev-console fallback), drove the full lifecycle in
+a real browser: customer places an order → **"Order placed"** notification
++ email to the customer, **"New order"** notification + email to every
+admin (both created within the same request, confirmed via direct DB
+query) → customer submits a payment → **"Payment submitted"** (customer) +
+**"Payment awaiting review"** (admin) → admin approves →
+**"Payment confirmed"** (customer), order moves to `confirmed`. Zero
+console/page errors; zero `[email] send failed` lines in the server log
+across the whole run (i.e. every real SMTP send that ran during
+verification actually succeeded, not silently swallowed).
+
+**Next:** Phase 9 — Invoices (PDF via `@react-pdf/renderer`).
+
+---
+
 ## Phase 7 — Payments (methods, proof upload, admin approval/rejection)
 
 **Date:** 2026-09-11

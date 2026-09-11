@@ -15,6 +15,8 @@ import { requireUser, requireAdmin } from "@/lib/permissions";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { writeAuditLog } from "@/lib/audit";
+import { notifyOrderCreated, notifyOrderStatusChanged } from "@/lib/notifications/events";
+import { ORDER_STATUS_LABELS } from "@/constants";
 import { actionOk, actionError, type ActionResult } from "@/lib/action-result";
 
 const cartItemsSchema = z
@@ -75,6 +77,16 @@ export async function createOrderAction(
     return actionError(friendlyCreateOrderError(result.message));
   }
 
+  await notifyOrderCreated(admin, {
+    orderId: result.order.id,
+    orderNumber: result.order.order_number,
+    customerId: profile.id,
+    customerName: parsed.data.customerName,
+    customerEmail: parsed.data.customerEmail,
+    total: result.order.total,
+    currencyCode: result.order.currency_code,
+  });
+
   revalidatePath("/account/orders");
   return actionOk({ orderId: result.order.id });
 }
@@ -115,6 +127,15 @@ export async function cancelOrderAction(
     action: isAdmin ? "order.cancelled_by_admin" : "order.cancelled_by_customer",
     entityType: "orders",
     entityId: orderId,
+  });
+
+  await notifyOrderStatusChanged(admin, {
+    orderId,
+    orderNumber: order.orderNumber,
+    customerId: order.customerId,
+    customerName: order.customerName,
+    customerEmail: order.customerEmail,
+    statusLabel: ORDER_STATUS_LABELS.cancelled,
   });
 
   revalidatePath(`/account/orders/${orderId}`);
@@ -161,6 +182,15 @@ export async function requestReturnAction(input: RequestReturnInput): Promise<Ac
     reason: parsed.data.reason,
   });
   if (!result.ok) return actionError("Could not submit your return request.");
+
+  await notifyOrderStatusChanged(admin, {
+    orderId: parsed.data.orderId,
+    orderNumber: order.orderNumber,
+    customerId: order.customerId,
+    customerName: order.customerName,
+    customerEmail: order.customerEmail,
+    statusLabel: ORDER_STATUS_LABELS.returned,
+  });
 
   revalidatePath(`/account/orders/${parsed.data.orderId}`);
   revalidatePath("/admin/orders");
@@ -219,6 +249,15 @@ export async function updateOrderStatusAction(
     entityType: "orders",
     entityId: parsed.data.orderId,
     metadata: { from: order.status, to: parsed.data.newStatus, reason: parsed.data.reason ?? null },
+  });
+
+  await notifyOrderStatusChanged(serviceClient, {
+    orderId: parsed.data.orderId,
+    orderNumber: order.orderNumber,
+    customerId: order.customerId,
+    customerName: order.customerName,
+    customerEmail: order.customerEmail,
+    statusLabel: ORDER_STATUS_LABELS[parsed.data.newStatus],
   });
 
   revalidatePath(`/admin/orders/${parsed.data.orderId}`);

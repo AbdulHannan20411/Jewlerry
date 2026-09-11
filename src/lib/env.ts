@@ -19,7 +19,13 @@ const serverSchema = z.object({
   NEXT_PUBLIC_SUPABASE_URL: z.url(),
   NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1),
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
-  RESEND_API_KEY: optionalString(z.string().min(1)),
+  // SMTP transport (e.g. Gmail with an app password). When unset, emails
+  // are logged to the server console instead of sent — safe default for
+  // local dev so nothing is silently swallowed.
+  SMTP_HOST: optionalString(z.string().min(1)),
+  SMTP_PORT: z.coerce.number().int().positive().default(465),
+  SMTP_USER: optionalString(z.string().min(1)),
+  SMTP_PASSWORD: optionalString(z.string().min(1)),
   EMAIL_FROM: z.string().min(1).default("Atelier Jewelry <onboarding@resend.dev>"),
   SITE_URL: z.url().default("http://localhost:3000"),
   ADMIN_BOOTSTRAP_USERNAME: z.string().min(1).default("admin"),

@@ -9,6 +9,11 @@ import { uploadPaymentProof, getPaymentProofSignedUrl } from "@/lib/storage/paym
 import { getOrderById } from "@/lib/orders/queries";
 import { getPaymentById } from "@/lib/payments/queries";
 import {
+  notifyPaymentSubmitted,
+  notifyPaymentApproved,
+  notifyPaymentRejected,
+} from "@/lib/notifications/events";
+import {
   submitPaymentRpc,
   reviewPaymentRpc,
   friendlySubmitPaymentError,
@@ -73,6 +78,17 @@ export async function submitPaymentAction(
     return actionError(friendlySubmitPaymentError(result.message));
   }
 
+  await notifyPaymentSubmitted(admin, {
+    paymentId: result.payment.id,
+    orderId: order.id,
+    orderNumber: order.orderNumber,
+    customerId: profile.id,
+    customerName: order.customerName,
+    customerEmail: order.customerEmail,
+    amount: order.total,
+    currencyCode: order.currencyCode,
+  });
+
   revalidatePath(`/account/orders/${parsed.data.orderId}`);
   revalidatePath("/admin/payments");
   return actionOk(undefined);
@@ -113,6 +129,31 @@ export async function reviewPaymentAction(input: ReviewPaymentInput): Promise<Ac
       rejection_reason: parsed.data.rejectionReason ?? null,
     },
   });
+
+  const order = await getOrderById(serviceClient, result.payment.order_id);
+  if (order) {
+    if (parsed.data.decision === "approved") {
+      await notifyPaymentApproved(serviceClient, {
+        orderId: order.id,
+        orderNumber: order.orderNumber,
+        customerId: order.customerId,
+        customerName: order.customerName,
+        customerEmail: order.customerEmail,
+        amount: result.payment.amount,
+        currencyCode: order.currencyCode,
+      });
+    } else {
+      await notifyPaymentRejected(serviceClient, {
+        orderId: order.id,
+        orderNumber: order.orderNumber,
+        customerId: order.customerId,
+        customerName: order.customerName,
+        customerEmail: order.customerEmail,
+        reason: parsed.data.rejectionReason ?? "Not specified",
+        note: parsed.data.rejectionNote,
+      });
+    }
+  }
 
   revalidatePath("/admin/payments");
   revalidatePath(`/admin/payments/${parsed.data.paymentId}`);

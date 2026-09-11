@@ -68,6 +68,18 @@ export const ORDER_STATUS_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   cancelled: [],
 };
 
+/** Human-readable labels for order-status emails/notifications and admin UI. */
+export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
+  unconfirmed: "Unconfirmed",
+  payment_pending: "Payment Pending",
+  confirmed: "Confirmed",
+  in_process: "Processing",
+  delivered: "Delivered",
+  completed: "Completed",
+  returned: "Returned",
+  cancelled: "Cancelled",
+};
+
 export const PAYMENT_STATUS = {
   PENDING: "pending",
   APPROVED: "approved",
