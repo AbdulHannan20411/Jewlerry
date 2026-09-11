@@ -5,6 +5,35 @@ the way for anything the spec left ambiguous. Newest entries at the top.
 
 ---
 
+## Hosted Supabase project deployed
+
+**Date:** 2026-09-11
+
+Pushed the full schema to the user's real hosted Supabase project
+(`wapunpgqxavbyrxxdyai`, region `ap-northeast-2`) and bootstrapped it:
+all 14 migrations, `seed.sql` catalog data, and the admin account
+(`must_change_password: true`, verified via a REST query against the
+live project). Credentials were used transiently (shell env vars for a
+single command each) and never written to any tracked file.
+
+**Note for local dev going forward:** `.env.local` still points at the
+local Docker Supabase instance (deliberately, to avoid iterative
+Playwright-driven dev/testing writing test data into the real project).
+The hosted project's URL/keys are what go into Vercel's environment
+variables at actual deploy time (Phase 12) — see README's deployment
+section.
+
+**Environment gap found along the way:** the direct DB hostname
+(`db.<ref>.supabase.co`) is IPv6-only for this (and apparently all newer)
+Supabase projects; this sandbox has no IPv6 route, so `supabase db push`
+against it fails with a DNS resolution error. The fix is using the
+**connection pooler** hostname instead (`Project Settings → Database →
+Connection string → Session/Transaction pooler`, not "Direct
+connection") — IPv4-compatible. Worth remembering for anyone hitting the
+same thing.
+
+---
+
 ## Phase 5 — Storefront (home, product list, product detail, cart)
 
 **Date:** 2026-09-11
