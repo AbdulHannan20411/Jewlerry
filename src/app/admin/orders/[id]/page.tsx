@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import type { Metadata } from "next";
-import { ImageOff } from "lucide-react";
+import { ImageOff, FileDown } from "lucide-react";
 import { requireAdmin } from "@/lib/permissions";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getOrderById } from "@/lib/orders/queries";
@@ -45,6 +45,11 @@ export default async function AdminOrderDetailPage({
               {order.invoiceNumber} &middot; Placed {formatDate(order.createdAt)}
             </p>
           </div>
+          <Button asChild variant="outline" size="sm">
+            <a href={`/api/invoices/${order.id}`}>
+              <FileDown className="size-4" /> Invoice
+            </a>
+          </Button>
         </div>
       </div>
 

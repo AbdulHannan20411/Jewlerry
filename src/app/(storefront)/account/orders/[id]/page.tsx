@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import type { Metadata } from "next";
-import { ImageOff } from "lucide-react";
+import { ImageOff, FileDown } from "lucide-react";
 import { requireUser } from "@/lib/permissions";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getOrderById } from "@/lib/orders/queries";
@@ -53,7 +53,14 @@ export default async function AccountOrderDetailPage({
           <h1 className="font-heading text-2xl font-semibold">{order.orderNumber}</h1>
           <p className="text-sm text-muted-foreground">Placed {formatDate(order.createdAt)}</p>
         </div>
-        <OrderStatusBadge status={order.status} />
+        <div className="flex items-center gap-2">
+          <OrderStatusBadge status={order.status} />
+          <Button asChild variant="outline" size="sm">
+            <a href={`/api/invoices/${order.id}`}>
+              <FileDown className="size-4" /> Invoice
+            </a>
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[1fr_320px]">

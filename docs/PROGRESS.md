@@ -5,6 +5,43 @@ the way for anything the spec left ambiguous. Newest entries at the top.
 
 ---
 
+## Phase 9 — Invoices (PDF)
+
+**Date:** 2026-09-11
+
+- `lib/invoices/invoice-document.tsx`: a `@react-pdf/renderer` document
+  (`Document`/`Page`/`View`/`Text`, not React DOM — never sent to the
+  browser as HTML) styled to match the app's ivory/gold/dark-brown design
+  system. Built entirely from `OrderDetail` — same data already re-read
+  from the database for the order pages, so the invoice can never reflect
+  a stale/tampered client-side total.
+- `app/api/invoices/[orderId]/route.ts` (the app's first Route Handler
+  under `/api`): `renderToBuffer` the document server-side and stream it
+  back as `application/pdf` with a `Content-Disposition: attachment`
+  filename of the order's invoice number. Access mirrors every other
+  order-detail page: the order's own customer, or an admin — checked
+  explicitly in the handler (not just left to RLS), since `getOrderById`
+  already returns `null` for an order outside the caller's own RLS
+  visibility, but the ownership check still runs for defense in depth.
+- "Invoice" buttons (plain `<a href="/api/invoices/{id}">`, not a client
+  fetch — a real download link is simpler and works everywhere) added to
+  both the customer and admin order-detail page headers.
+
+### Verified live (Playwright + direct PDF inspection)
+
+Signed in as the customer, fetched `/api/invoices/{own order}` with the
+session cookie — `200`, `application/pdf`, a real PDF (`%PDF` header) —
+then opened it and visually confirmed correct branding, invoice/order
+number, itemized total matching the order, and address. Fetching another
+customer's order id came back `404` (RLS on the underlying `orders` query
+already scopes it out before the ownership check even runs). Signed in as
+admin, fetched the same customer's invoice successfully (`200`).
+
+**Next:** Phase 10 — Reviews (submission/edit/delete tied to purchase
+eligibility; read-only display already built in Phase 5).
+
+---
+
 ## Phase 8 — Notifications & email
 
 **Date:** 2026-09-11

@@ -25,7 +25,7 @@ This README is updated as each phase below completes. See
 | 6. Orders (checkout, statuses, history) | ✅ Done — verified in a real browser (Playwright) |
 | 7. Payments (methods, proof upload, approval) | ✅ Done — verified in a real browser (Playwright) |
 | 8. Notifications & email | ✅ Done — verified in a real browser (Playwright) + real Gmail SMTP send |
-| 9. Invoices (PDF) | ⏳ Pending |
+| 9. Invoices (PDF) | ✅ Done — verified in a real browser (Playwright), real PDF inspected |
 | 10. Reviews | ⏳ Pending |
 | 11. Admin (dashboard, reports, settings, banners, FAQs, contact) | ⏳ Pending |
 | 12. Security/perf/a11y audit, tests, deployment docs | ⏳ Pending |
