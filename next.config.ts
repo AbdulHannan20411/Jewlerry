@@ -51,12 +51,25 @@ const nextConfig: NextConfig = {
       },
     ];
   },
-  // Enables forbidden()/unauthorized() + forbidden.tsx/unauthorized.tsx,
-  // used by lib/permissions for admin/role gating (still experimental in
-  // Next 16.3, but stable enough for this use and gives proper dedicated
-  // 403/401 UI segments instead of ad-hoc redirects).
   experimental: {
+    // Enables forbidden()/unauthorized() + forbidden.tsx/unauthorized.tsx,
+    // used by lib/permissions for admin/role gating (still experimental
+    // in Next 16.3, but stable enough for this use and gives proper
+    // dedicated 403/401 UI segments instead of ad-hoc redirects).
     authInterrupts: true,
+    // Server Actions default to a 1MB request body cap — every
+    // file-upload action (payment proofs, product images, banners)
+    // submits the file as FormData through a Server Action, and
+    // MAX_IMAGE_SIZE_BYTES (constants/index.ts) already allows up to
+    // 5MB, validated server-side in lib/storage/images.ts and
+    // lib/storage/payment-proofs.ts. Without raising this, every upload
+    // past 1MB was rejected by Next itself before that validation ever
+    // ran, surfacing as a raw 500 instead of the friendly "Image must be
+    // 5MB or smaller" message. 8mb leaves headroom for multipart
+    // overhead (boundaries/headers) above the 5MB file limit.
+    serverActions: {
+      bodySizeLimit: "8mb",
+    },
   },
   images: {
     qualities: [60, 75, 90],
