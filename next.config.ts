@@ -37,6 +37,11 @@ const csp = [
 
 const nextConfig: NextConfig = {
   typedRoutes: true,
+  // Next's dev server blocks cross-origin requests to dev-only assets
+  // (HMR websocket, etc.) from any host other than localhost by default.
+  // Testing from another device on the LAN (e.g. a phone) needs this
+  // machine's LAN IP allow-listed — dev-only, has no effect in production.
+  allowedDevOrigins: ["192.168.100.12"],
   async headers() {
     return [
       {

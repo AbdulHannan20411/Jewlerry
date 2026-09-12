@@ -38,7 +38,12 @@ export function SignInForm({ returnTo }: { returnTo?: string }) {
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} noValidate>
+    // method="post" is a defense-in-depth fallback: if a submit fires
+    // before React has hydrated and attached onSubmit (slow network/
+    // device — real, not hypothetical, on a first mobile load), a plain
+    // <form> with no method defaults to GET, serializing the password
+    // into the URL — visible in browser history and server access logs.
+    <form onSubmit={handleSubmit(onSubmit)} method="post" noValidate>
       <FieldGroup>
         <TextField
           label="Username or email"

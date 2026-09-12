@@ -5,9 +5,13 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { Route } from "next";
 import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { useDebouncedCallback } from "@/hooks/use-debounced-callback";
 
-/** Debounced search box that drives the `q` URL param (and resets `page` to 1). */
+/**
+ * Live search box that drives the `q` URL param (and resets `page` to 1)
+ * on every keystroke — no debounce. `router.replace` (not `push`) so each
+ * keystroke updates the current history entry instead of stacking one
+ * back-button step per character typed.
+ */
 export function SearchInput({
   placeholder = "Search...",
   paramName = "q",
@@ -20,13 +24,13 @@ export function SearchInput({
   const searchParams = useSearchParams();
   const [value, setValue] = React.useState(searchParams.get(paramName) ?? "");
 
-  const debouncedNavigate = useDebouncedCallback((next: string) => {
+  function navigate(next: string) {
     const params = new URLSearchParams(searchParams.toString());
     if (next) params.set(paramName, next);
     else params.delete(paramName);
     params.set("page", "1");
-    router.push(`${pathname}?${params.toString()}` as Route);
-  }, 400);
+    router.replace(`${pathname}?${params.toString()}` as Route, { scroll: false });
+  }
 
   return (
     <div className="relative w-full sm:max-w-xs">
@@ -40,7 +44,7 @@ export function SearchInput({
         value={value}
         onChange={(e) => {
           setValue(e.target.value);
-          debouncedNavigate(e.target.value);
+          navigate(e.target.value);
         }}
         className="pl-8"
         aria-label={placeholder}

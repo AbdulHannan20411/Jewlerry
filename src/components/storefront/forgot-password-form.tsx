@@ -40,7 +40,7 @@ export function ForgotPasswordForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} noValidate>
+    <form onSubmit={handleSubmit(onSubmit)} method="post" noValidate>
       <FieldGroup>
         <TextField
           label="Email"

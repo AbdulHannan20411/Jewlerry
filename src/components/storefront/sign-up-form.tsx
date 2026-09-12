@@ -66,7 +66,9 @@ export function SignUpForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} noValidate>
+    // method="post": if a submit fires before React hydrates, a <form>
+    // with no method defaults to GET, putting the password in the URL.
+    <form onSubmit={handleSubmit(onSubmit)} method="post" noValidate>
       <FieldGroup>
         <TextField
           label="Full name"
