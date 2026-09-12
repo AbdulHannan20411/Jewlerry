@@ -253,6 +253,7 @@ export async function getAllTags(supabase: SupabaseClient<Database>) {
   return data;
 }
 
+/** Unpaginated — used to populate dropdowns/filters (product form, storefront nav) that need every category, not one page of them. */
 export async function getAllCategories(
   supabase: SupabaseClient<Database>,
   options: { activeOnly?: boolean } = {},
@@ -265,4 +266,34 @@ export async function getAllCategories(
     return [];
   }
   return data;
+}
+
+/** Paginated — for the admin categories list page. */
+export async function searchCategories(
+  supabase: SupabaseClient<Database>,
+  options: { page?: number; pageSize?: number } = {},
+) {
+  const page = options.page ?? 1;
+  const pageSize = options.pageSize ?? DEFAULT_PAGE_SIZE;
+  const from = (page - 1) * pageSize;
+
+  const { data, count, error } = await supabase
+    .from("categories")
+    .select("*", { count: "exact" })
+    .order("display_order")
+    .range(from, from + pageSize - 1);
+
+  if (error) {
+    console.error("[searchCategories] failed:", error);
+    return { items: [], totalCount: 0, page, pageSize, pageCount: 1 };
+  }
+
+  const totalCount = count ?? 0;
+  return {
+    items: data ?? [],
+    totalCount,
+    page,
+    pageSize,
+    pageCount: Math.max(1, Math.ceil(totalCount / pageSize)),
+  };
 }

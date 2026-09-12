@@ -53,6 +53,7 @@ function mapPaymentMethod(row: {
   };
 }
 
+/** Unpaginated — used to populate the customer's method picker at checkout/payment submission, which needs every active method, not one page of them. */
 export async function getPaymentMethods(
   supabase: SupabaseClient<Database>,
   options: { activeOnly?: boolean } = {},
@@ -71,6 +72,44 @@ export async function getPaymentMethods(
   return (
     data as unknown as Parameters<typeof mapPaymentMethod>[0][]
   ).map(mapPaymentMethod);
+}
+
+export interface PaymentMethodListResult {
+  items: PaymentMethodDetail[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+  pageCount: number;
+}
+
+/** Paginated — for the admin payment methods list page. */
+export async function searchPaymentMethods(
+  supabase: SupabaseClient<Database>,
+  options: { page?: number; pageSize?: number } = {},
+): Promise<PaymentMethodListResult> {
+  const page = options.page ?? 1;
+  const pageSize = options.pageSize ?? DEFAULT_PAGE_SIZE;
+  const from = (page - 1) * pageSize;
+
+  const { data, count, error } = await supabase
+    .from("payment_methods")
+    .select("*, payment_method_details(swift_code, branch_code, qr_code_url)", { count: "exact" })
+    .order("display_order")
+    .range(from, from + pageSize - 1);
+
+  if (error || !data) {
+    if (error) console.error("[searchPaymentMethods] failed:", error);
+    return { items: [], totalCount: 0, page, pageSize, pageCount: 1 };
+  }
+
+  const totalCount = count ?? 0;
+  return {
+    items: (data as unknown as Parameters<typeof mapPaymentMethod>[0][]).map(mapPaymentMethod),
+    totalCount,
+    page,
+    pageSize,
+    pageCount: Math.max(1, Math.ceil(totalCount / pageSize)),
+  };
 }
 
 export async function getPaymentMethodById(

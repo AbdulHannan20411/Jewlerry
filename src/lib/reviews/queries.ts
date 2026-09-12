@@ -157,24 +157,40 @@ export interface MyReviewListItem extends MyReview {
   productSlug: string;
 }
 
+export interface MyReviewListResult {
+  items: MyReviewListItem[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+  pageCount: number;
+}
+
 export async function getCustomerReviews(
   supabase: SupabaseClient<Database>,
   customerId: string,
-): Promise<MyReviewListItem[]> {
-  const { data, error } = await supabase
+  options: { page?: number; pageSize?: number } = {},
+): Promise<MyReviewListResult> {
+  const page = options.page ?? 1;
+  const pageSize = options.pageSize ?? DEFAULT_PAGE_SIZE;
+  const from = (page - 1) * pageSize;
+
+  const { data, count, error } = await supabase
     .from("reviews")
     .select(
       "id, product_id, order_id, rating, title, comment, created_at, updated_at, products(name, slug, product_images(url, display_order))",
+      { count: "exact" },
     )
     .eq("customer_id", customerId)
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .range(from, from + pageSize - 1);
 
   if (error || !data) {
     if (error) console.error("[getCustomerReviews] failed:", error);
-    return [];
+    return { items: [], totalCount: 0, page, pageSize, pageCount: 1 };
   }
 
-  return (
+  const totalCount = count ?? 0;
+  const items = (
     data as unknown as {
       id: number;
       product_id: number;
@@ -202,6 +218,14 @@ export async function getCustomerReviews(
       productImageUrl: images[0]?.url ?? null,
     };
   });
+
+  return {
+    items,
+    totalCount,
+    page,
+    pageSize,
+    pageCount: Math.max(1, Math.ceil(totalCount / pageSize)),
+  };
 }
 
 export interface AdminReviewListItem {

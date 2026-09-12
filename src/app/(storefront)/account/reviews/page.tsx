@@ -8,6 +8,7 @@ import { getCustomerReviews } from "@/lib/reviews/queries";
 import { ReviewFormDialog } from "@/components/storefront/review-form-dialog";
 import { DeleteReviewButton } from "@/components/storefront/delete-review-button";
 import { Card, CardContent } from "@/components/ui/card";
+import { PaginationControls } from "@/components/shared/pagination-controls";
 import { cn, formatDate } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "My Reviews" };
@@ -26,27 +27,32 @@ function StarRow({ rating }: { rating: number }) {
   );
 }
 
-export default async function MyReviewsPage() {
+export default async function MyReviewsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>;
+}) {
   const profile = await requireUser();
+  const { page } = await searchParams;
   const supabase = await createServerSupabaseClient();
-  const reviews = await getCustomerReviews(supabase, profile.id);
+  const result = await getCustomerReviews(supabase, profile.id, { page: page ? Number(page) : 1 });
 
   return (
     <div className="mx-auto w-full max-w-2xl px-4 py-8">
       <div className="mb-6">
         <h1 className="font-heading text-2xl font-semibold">My Reviews</h1>
         <p className="text-sm text-muted-foreground">
-          {reviews.length} review{reviews.length === 1 ? "" : "s"}
+          {result.totalCount} review{result.totalCount === 1 ? "" : "s"}
         </p>
       </div>
 
-      {reviews.length === 0 ? (
+      {result.items.length === 0 ? (
         <p className="text-sm text-muted-foreground">
           You haven&apos;t reviewed any products yet. Reviews can be added from a delivered order.
         </p>
       ) : (
         <div className="space-y-4">
-          {reviews.map((review) => (
+          {result.items.map((review) => (
             <Card key={review.id}>
               <CardContent className="flex gap-3 py-4">
                 <div className="relative size-16 shrink-0 overflow-hidden rounded-md bg-muted">
@@ -97,6 +103,10 @@ export default async function MyReviewsPage() {
           ))}
         </div>
       )}
+
+      <div className="mt-6">
+        <PaginationControls page={result.page} pageCount={result.pageCount} totalCount={result.totalCount} />
+      </div>
     </div>
   );
 }
