@@ -17,6 +17,7 @@ import {
   Image as ImageIcon,
   Mail,
   HelpCircle,
+  ScrollText,
 } from "lucide-react";
 import { signOutAction } from "@/lib/auth/actions";
 import { Button } from "@/components/ui/button";
@@ -36,6 +37,7 @@ const links = [
   { href: "/admin/faqs", label: "FAQs", icon: HelpCircle },
   { href: "/admin/contact", label: "Contact Messages", icon: Mail },
   { href: "/admin/notifications", label: "Notifications", icon: Bell },
+  { href: "/admin/audit-log", label: "Audit Log", icon: ScrollText },
   { href: "/admin/settings", label: "Settings", icon: Settings },
 ] as const;
 

@@ -185,11 +185,12 @@ export async function updateCategoryAction(
   const parsed = categoryFormSchema.safeParse(input);
   if (!parsed.success) return actionError("Please fix the errors below.", parsed.error.flatten().fieldErrors);
 
-  await requireAdmin();
+  const admin = await requireAdmin();
   const supabase = await createServerSupabaseClient();
   const result = await mutations.updateCategory(supabase, id, parsed.data);
   if (!result.ok) return actionError(result.error);
 
+  await writeAuditLog({ actorId: admin.id, action: "category.updated", entityType: "categories", entityId: id });
   revalidatePath("/admin/categories");
   return actionOk(undefined);
 }
@@ -236,11 +237,12 @@ export async function updateTagAction(id: number, input: TagFormInput): Promise<
   const parsed = tagFormSchema.safeParse(input);
   if (!parsed.success) return actionError("Please fix the errors below.", parsed.error.flatten().fieldErrors);
 
-  await requireAdmin();
+  const admin = await requireAdmin();
   const supabase = await createServerSupabaseClient();
   const result = await mutations.updateTag(supabase, id, parsed.data);
   if (!result.ok) return actionError(result.error);
 
+  await writeAuditLog({ actorId: admin.id, action: "tag.updated", entityType: "tags", entityId: id });
   revalidatePath("/admin/tags");
   return actionOk(undefined);
 }

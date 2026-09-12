@@ -7,6 +7,7 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { requireAdmin } from "@/lib/permissions";
 import { markContactMessageRead, deleteContactMessage } from "@/lib/contact/mutations";
 import { enforceRateLimit, getRequestIp } from "@/lib/auth/rate-limit";
+import { writeAuditLog } from "@/lib/audit";
 import { actionOk, actionError, type ActionResult } from "@/lib/action-result";
 
 export async function submitContactMessageAction(
@@ -53,11 +54,12 @@ export async function markContactMessageReadAction(id: number): Promise<ActionRe
 }
 
 export async function deleteContactMessageAction(id: number): Promise<ActionResult> {
-  await requireAdmin();
+  const admin = await requireAdmin();
   const supabase = await createServerSupabaseClient();
   const result = await deleteContactMessage(supabase, id);
   if (!result.ok) return actionError(result.error);
 
+  await writeAuditLog({ actorId: admin.id, action: "contact_message.deleted", entityType: "contact_messages", entityId: id });
   revalidatePath("/admin/contact");
   return actionOk(undefined);
 }

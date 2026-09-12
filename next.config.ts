@@ -11,8 +11,46 @@ const supabaseParsedUrl = supabaseUrl ? new URL(supabaseUrl) : undefined;
 const supabaseHostname = supabaseParsedUrl?.hostname;
 const supabaseProtocol: "http" | "https" = supabaseParsedUrl?.protocol === "http:" ? "http" : "https";
 
+// Supabase JS (auth session refresh, direct client-side queries where RLS
+// allows it, e.g. the storefront's own cart/product reads) calls out to
+// the project's REST/Auth/Realtime endpoints directly from the browser,
+// so the CSP's connect-src must allow both the http(s) API origin and its
+// wss:// Realtime counterpart — even though this app doesn't use Realtime
+// subscriptions itself, supabase-js opens the socket unconditionally.
+const supabaseOrigin = supabaseHostname ? `${supabaseProtocol}://${supabaseHostname}` : "";
+const supabaseWsOrigin = supabaseHostname ? `wss://${supabaseHostname}` : "";
+
+const csp = [
+  "default-src 'self'",
+  // Next.js injects small inline bootstrap scripts (and dev-mode HMR
+  // needs 'unsafe-eval'); no third-party script origins are used anywhere
+  // in this app.
+  `script-src 'self' 'unsafe-inline'${process.env.NODE_ENV === "development" ? " 'unsafe-eval'" : ""}`,
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: blob: https:",
+  "font-src 'self' data:",
+  `connect-src 'self' ${supabaseOrigin} ${supabaseWsOrigin}`.trim(),
+  "frame-ancestors 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+].join("; ");
+
 const nextConfig: NextConfig = {
   typedRoutes: true,
+  async headers() {
+    return [
+      {
+        source: "/(.*)",
+        headers: [
+          { key: "X-Frame-Options", value: "DENY" },
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+          { key: "Content-Security-Policy", value: csp },
+        ],
+      },
+    ];
+  },
   // Enables forbidden()/unauthorized() + forbidden.tsx/unauthorized.tsx,
   // used by lib/permissions for admin/role gating (still experimental in
   // Next 16.3, but stable enough for this use and gives proper dedicated

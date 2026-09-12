@@ -5,6 +5,94 @@ the way for anything the spec left ambiguous. Newest entries at the top.
 
 ---
 
+## Phase 12 — Security/performance/accessibility audit, tests, deployment docs
+
+**Date:** 2026-09-12
+
+A real audit pass, not a self-report: every check in `docs/SECURITY.md`
+was verified by actually grepping/reading the code (e.g. "does every
+admin action call `requireAdmin()`" was answered by a small script
+scanning every exported function in every `lib/*/actions.ts`, not by
+recalling how it was built). Two real gaps found and fixed:
+
+- **HTML injection in transactional emails**: `lib/email/templates.ts`
+  builds raw HTML via template literals — a path React's default
+  escaping never touches. Customer-controlled text (checkout full name)
+  was interpolated unescaped into emails sent to *admins* (new-order/
+  new-payment alerts), a stored HTML-injection risk in any HTML-rendering
+  email client. Added an `escapeHtml()` helper, applied to every
+  interpolated dynamic string across every template, and added a
+  regression test (`tests/unit/email-templates.test.ts`) asserting a
+  `<script>`/`onerror=` payload in a customer name or admin-composed
+  notification never survives into the rendered HTML unescaped.
+- **Inconsistent audit logging**: `updateCategoryAction`/`updateTagAction`
+  logged create/delete but not update (a Phase-4-era inconsistency, from
+  before the audit-log convention was applied everywhere), and
+  `deleteContactMessageAction` didn't log at all. Both fixed.
+
+Also closed two "configured but never enforced" gaps discovered while
+checking `CRON_SECRET` (scaffolded in `.env.example` since Phase 1) and
+`admin_settings.order_auto_cancel_unconfirmed_hours` (schema since Phase
+2, admin-configurable since Phase 11) — neither actually did anything
+until now:
+
+- **`/api/cron/auto-cancel-orders`**: cancels `unconfirmed` orders older
+  than the configured threshold, wired into `vercel.json` (daily —
+  Vercel's Hobby/free plan caps cron frequency at once/day; Pro allows
+  finer granularity). Verified live end-to-end: backdated a real order's
+  `created_at`, hit the endpoint with the correct bearer secret, confirmed
+  the order flipped to `cancelled`, the customer got their usual
+  order-status-changed notification/email, and an `order.auto_cancelled`
+  audit row was written — also confirmed the endpoint 401s on a missing
+  or wrong secret.
+- **A read-only Audit Log admin page** (`/admin/audit-log`): every
+  sensitive action has written to `audit_logs` since Phase 2, but nothing
+  ever let an admin actually view it. Added `lib/audit-log/queries.ts` +
+  a simple searchable table, left-joined to `profiles` for a display name
+  ("System" for a null `actor_id` — cron/service-role-triggered rows).
+
+### Other hardening added
+
+- **Security headers** (`next.config.ts`): `X-Frame-Options: DENY`,
+  `X-Content-Type-Options: nosniff`, `Referrer-Policy:
+  strict-origin-when-cross-origin`, a `Permissions-Policy` denying
+  camera/mic/geolocation (none used), and a `Content-Security-Policy`
+  scoped to `'self'` + the Supabase project origin (its `wss://` Realtime
+  endpoint included, since supabase-js opens that socket unconditionally
+  even though this app never subscribes to anything). Verified live:
+  headers present on real responses (`curl -I`), and — more importantly —
+  the app kept working under the policy (confirmed via the user's own
+  concurrent live usage of checkout/orders while the headers were active,
+  plus a direct check of the storefront/admin pages including the
+  Recharts dashboard and product image uploads).
+- **`robots.txt` / `sitemap.xml`**: account/admin/auth/API routes excluded
+  from crawling (all require a session anyway); sitemap covers static
+  pages + every active product.
+- **Accessibility spot-check**: grepped every `next/image` usage for a
+  missing `alt`, and every icon-only `Button` for a missing
+  `aria-label` — zero real gaps found in app code (the one hit was a
+  vendored shadcn calendar day-cell button, a false positive — the day
+  number text is its own accessible name).
+- **Deployment documentation**: README's Vercel + Supabase section
+  (previously a stub) now covers the full path — env vars, pointing
+  Supabase Auth's redirect URLs at the real domain, bootstrapping the
+  admin account against the hosted project, the cron job's Vercel-plan
+  caveat, and a post-deploy smoke-test checklist.
+
+### Left deliberately unchecked
+
+`docs/SECURITY.md` records one item as explicitly *not* satisfied rather
+than papering over it: there's no automated integration-test suite
+exercising RLS against a real Postgres in CI. Coverage so far is real but
+manual (every phase's live Playwright verification repeatedly proved a
+customer's own session can't see/write another customer's rows, illegal
+transitions get rejected, etc.) — solid for a single-developer project,
+but a genuine gap if this codebase grows a team.
+
+**Status: all 12 phases complete.**
+
+---
+
 ## Phase 11 — Admin (dashboard/reports, settings, banners, FAQs, contact, customers, reviews moderation, notifications)
 
 **Date:** 2026-09-11

@@ -471,7 +471,7 @@ export interface Database {
         Args: {
           p_order_id: number;
           p_new_status: OrderStatusValue;
-          p_changed_by: string;
+          p_changed_by: string | null;
           p_reason?: string | null;
         };
         Returns: Database["public"]["Tables"]["orders"]["Row"];

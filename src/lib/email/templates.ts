@@ -4,6 +4,27 @@ const BRAND = "Atelier Jewelry";
 const GOLD = "#a8823c";
 const INK = "#2b2420";
 
+/**
+ * Every dynamic string below eventually flows into a raw HTML template
+ * literal — several originate as free-text user input (checkout full
+ * name, an admin's rejection note or composed notification body). None
+ * of that is escaped by anything else on this path (unlike React, which
+ * escapes by default), so an unescaped `<script>` or stray `<`/`&` in a
+ * customer's name would corrupt the markup or execute in an HTML-
+ * rendering email client. Escape every interpolated value here, even
+ * ones that are currently system-generated (order numbers, status
+ * labels) — cheap insurance against a future caller passing through
+ * something less trusted.
+ */
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 /** Shared HTML shell (inline styles only — most email clients strip <style> tags). */
 function layout(title: string, bodyHtml: string): string {
   return `<!doctype html>
@@ -56,8 +77,8 @@ export function orderConfirmationEmail(params: {
   const subject = `Order confirmation — ${params.orderNumber}`;
   const html = layout(
     "Thank you for your order",
-    `<p>Hi ${params.customerName},</p>
-     <p>We've received your order <strong>${params.orderNumber}</strong> for
+    `<p>Hi ${escapeHtml(params.customerName)},</p>
+     <p>We've received your order <strong>${escapeHtml(params.orderNumber)}</strong> for
      <strong>${formatCurrency(params.total, params.currencyCode)}</strong>. We'll email you again once your
      payment is confirmed and your order is on its way.</p>
      ${button(siteUrl(`/account/orders/${params.orderId}`), "View your order")}`,
@@ -74,9 +95,9 @@ export function orderStatusChangedEmail(params: {
   const subject = `Order update — ${params.orderNumber} is now ${params.statusLabel}`;
   const html = layout(
     "Your order status has changed",
-    `<p>Hi ${params.customerName},</p>
-     <p>Your order <strong>${params.orderNumber}</strong> is now
-     <strong>${params.statusLabel}</strong>.</p>
+    `<p>Hi ${escapeHtml(params.customerName)},</p>
+     <p>Your order <strong>${escapeHtml(params.orderNumber)}</strong> is now
+     <strong>${escapeHtml(params.statusLabel)}</strong>.</p>
      ${button(siteUrl(`/account/orders/${params.orderId}`), "View your order")}`,
   );
   return { subject, html };
@@ -86,8 +107,8 @@ export function paymentSubmittedEmail(params: { orderNumber: string; customerNam
   const subject = `Payment received for review — ${params.orderNumber}`;
   const html = layout(
     "Payment submitted",
-    `<p>Hi ${params.customerName},</p>
-     <p>Thanks — we've received your payment proof for order <strong>${params.orderNumber}</strong>
+    `<p>Hi ${escapeHtml(params.customerName)},</p>
+     <p>Thanks — we've received your payment proof for order <strong>${escapeHtml(params.orderNumber)}</strong>
      and it's now awaiting review. We'll email you as soon as it's confirmed.</p>
      ${button(siteUrl(`/account/orders/${params.orderId}`), "View your order")}`,
   );
@@ -104,9 +125,9 @@ export function paymentApprovedEmail(params: {
   const subject = `Payment confirmed — ${params.orderNumber}`;
   const html = layout(
     "Payment confirmed",
-    `<p>Hi ${params.customerName},</p>
+    `<p>Hi ${escapeHtml(params.customerName)},</p>
      <p>Your payment of <strong>${formatCurrency(params.amount, params.currencyCode)}</strong> for order
-     <strong>${params.orderNumber}</strong> has been confirmed. We're now preparing your order.</p>
+     <strong>${escapeHtml(params.orderNumber)}</strong> has been confirmed. We're now preparing your order.</p>
      ${button(siteUrl(`/account/orders/${params.orderId}`), "View your order")}`,
   );
   return { subject, html };
@@ -122,9 +143,9 @@ export function paymentRejectedEmail(params: {
   const subject = `Payment could not be confirmed — ${params.orderNumber}`;
   const html = layout(
     "We couldn't confirm your payment",
-    `<p>Hi ${params.customerName},</p>
-     <p>We weren't able to confirm your payment for order <strong>${params.orderNumber}</strong>.</p>
-     <p><strong>Reason:</strong> ${params.reason}${params.note ? `<br/>${params.note}` : ""}</p>
+    `<p>Hi ${escapeHtml(params.customerName)},</p>
+     <p>We weren't able to confirm your payment for order <strong>${escapeHtml(params.orderNumber)}</strong>.</p>
+     <p><strong>Reason:</strong> ${escapeHtml(params.reason)}${params.note ? `<br/>${escapeHtml(params.note)}` : ""}</p>
      <p>Please submit a new payment for this order, or contact us if you believe this is a mistake.</p>
      ${button(siteUrl(`/account/orders/${params.orderId}/pay`), "Submit payment again")}`,
   );
@@ -141,7 +162,7 @@ export function newOrderAdminAlertEmail(params: {
   const subject = `New order — ${params.orderNumber}`;
   const html = layout(
     "New order placed",
-    `<p>${params.customerName} just placed order <strong>${params.orderNumber}</strong> for
+    `<p>${escapeHtml(params.customerName)} just placed order <strong>${escapeHtml(params.orderNumber)}</strong> for
      <strong>${formatCurrency(params.total, params.currencyCode)}</strong>.</p>
      ${button(siteUrl(`/admin/orders/${params.orderId}`), "View in admin")}`,
   );
@@ -158,9 +179,9 @@ export function newPaymentAdminAlertEmail(params: {
   const subject = `Payment submitted for review — ${params.orderNumber}`;
   const html = layout(
     "Payment awaiting review",
-    `<p>${params.customerName} submitted a payment of
+    `<p>${escapeHtml(params.customerName)} submitted a payment of
      <strong>${formatCurrency(params.amount, params.currencyCode)}</strong> for order
-     <strong>${params.orderNumber}</strong>.</p>
+     <strong>${escapeHtml(params.orderNumber)}</strong>.</p>
      ${button(siteUrl(`/admin/payments/${params.paymentId}`), "Review payment")}`,
   );
   return { subject, html };
@@ -171,7 +192,7 @@ export function accountBlockedEmail(params: { reason: string }) {
   const html = layout(
     "Account suspended",
     `<p>Your ${BRAND} account has been suspended by an administrator.</p>
-     <p><strong>Reason:</strong> ${params.reason}</p>
+     <p><strong>Reason:</strong> ${escapeHtml(params.reason)}</p>
      <p>If you believe this is a mistake, please contact us for help.</p>`,
   );
   return { subject, html };
@@ -179,8 +200,8 @@ export function accountBlockedEmail(params: { reason: string }) {
 
 export function genericNotificationEmail(params: { title: string; message: string; ctaUrl?: string; ctaLabel?: string }) {
   const html = layout(
-    params.title,
-    `<p>${params.message}</p>${params.ctaUrl && params.ctaLabel ? button(siteUrl(params.ctaUrl), params.ctaLabel) : ""}`,
+    escapeHtml(params.title),
+    `<p>${escapeHtml(params.message)}</p>${params.ctaUrl && params.ctaLabel ? button(siteUrl(params.ctaUrl), params.ctaLabel) : ""}`,
   );
   return { subject: params.title, html };
 }

@@ -32,7 +32,7 @@ export async function createOrderRpc(
 
 export async function changeOrderStatusRpc(
   supabase: SupabaseClient<Database>,
-  params: { orderId: number; newStatus: OrderStatusValue; changedBy: string; reason?: string | null },
+  params: { orderId: number; newStatus: OrderStatusValue; changedBy: string | null; reason?: string | null },
 ) {
   const { data, error } = await supabase.rpc("change_order_status", {
     p_order_id: params.orderId,
