@@ -16,7 +16,10 @@ const STATUS_OPTIONS: { value: OrderStatusValue; label: string }[] = [
   { value: "confirmed", label: "Confirmed" },
   { value: "in_process", label: "Processing" },
   { value: "delivered", label: "Delivered" },
+  { value: "partial_completed", label: "Partially Completed" },
   { value: "completed", label: "Completed" },
+  { value: "return_initiated", label: "Return Initiated" },
+  { value: "return_processing", label: "Return Processing" },
   { value: "returned", label: "Returned" },
   { value: "cancelled", label: "Cancelled" },
 ];

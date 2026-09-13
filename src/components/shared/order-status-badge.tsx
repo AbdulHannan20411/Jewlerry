@@ -11,7 +11,10 @@ const CONFIG: Record<OrderStatusValue, { label: string; variant: "default" | "se
   confirmed: { label: "Confirmed", variant: "secondary" },
   in_process: { label: "Processing", variant: "secondary" },
   delivered: { label: "Delivered", variant: "success" },
+  partial_completed: { label: "Partially Completed", variant: "warning" },
   completed: { label: "Completed", variant: "success" },
+  return_initiated: { label: "Return Initiated", variant: "warning" },
+  return_processing: { label: "Return Processing", variant: "secondary" },
   returned: { label: "Returned", variant: "outline" },
   cancelled: { label: "Cancelled", variant: "destructive" },
 };

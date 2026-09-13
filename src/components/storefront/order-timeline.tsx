@@ -8,7 +8,10 @@ const STATUS_LABELS: Record<string, string> = {
   confirmed: "Payment approved — order confirmed",
   in_process: "Order processing",
   delivered: "Order delivered",
+  partial_completed: "Partially completed — some products reviewed",
   completed: "Order completed",
+  return_initiated: "Return requested",
+  return_processing: "Return approved — awaiting parcel",
   returned: "Order returned",
   cancelled: "Order cancelled",
 };

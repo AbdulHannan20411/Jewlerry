@@ -26,9 +26,29 @@ describe("isValidTransition", () => {
     expect(isValidTransition("in_process", "cancelled")).toBe(true);
   });
 
-  it("allows returns from delivered or completed", () => {
-    expect(isValidTransition("delivered", "returned")).toBe(true);
-    expect(isValidTransition("completed", "returned")).toBe(true);
+  it("allows a delivered order to go straight to partial_completed (a review that doesn't cover every product)", () => {
+    expect(isValidTransition("delivered", "partial_completed")).toBe(true);
+    expect(isValidTransition("partial_completed", "completed")).toBe(true);
+  });
+
+  it("allows return_initiated from any post-delivery state, and rejects skipping the approval step", () => {
+    expect(isValidTransition("delivered", "return_initiated")).toBe(true);
+    expect(isValidTransition("partial_completed", "return_initiated")).toBe(true);
+    expect(isValidTransition("completed", "return_initiated")).toBe(true);
+    expect(isValidTransition("delivered", "return_processing")).toBe(false);
+    expect(isValidTransition("delivered", "returned")).toBe(false);
+  });
+
+  it("allows return_initiated to move to return_processing (approved) or revert to any pre-return state (rejected)", () => {
+    expect(isValidTransition("return_initiated", "return_processing")).toBe(true);
+    expect(isValidTransition("return_initiated", "delivered")).toBe(true);
+    expect(isValidTransition("return_initiated", "partial_completed")).toBe(true);
+    expect(isValidTransition("return_initiated", "completed")).toBe(true);
+  });
+
+  it("only allows return_processing to move to returned", () => {
+    expect(isValidTransition("return_processing", "returned")).toBe(true);
+    expect(isValidTransition("return_processing", "delivered")).toBe(false);
   });
 
   it("rejects skipping stages", () => {
@@ -54,8 +74,14 @@ describe("canCustomerTransition (Rule 5: customers can't self-advance an order)"
     expect(canCustomerTransition("payment_pending", "cancelled")).toBe(true);
   });
 
-  it("lets a customer request a return after delivery", () => {
-    expect(canCustomerTransition("delivered", "returned")).toBe(true);
+  it("lets a customer request a return after delivery (which only ever lands on return_initiated)", () => {
+    expect(canCustomerTransition("delivered", "return_initiated")).toBe(true);
+    expect(canCustomerTransition("partial_completed", "return_initiated")).toBe(true);
+    expect(canCustomerTransition("delivered", "returned")).toBe(false);
+  });
+
+  it("never lets a customer request a return once the order is already fully completed", () => {
+    expect(canCustomerTransition("completed", "return_initiated")).toBe(false);
   });
 
   it("never lets a customer confirm/process/deliver/complete their own order", () => {
@@ -84,11 +110,20 @@ describe("canAdminTransition", () => {
   it("allows the operational transitions", () => {
     expect(canAdminTransition("confirmed", "in_process")).toBe(true);
     expect(canAdminTransition("in_process", "delivered")).toBe(true);
-    expect(canAdminTransition("delivered", "returned")).toBe(true);
   });
 
-  it("blocks delivered -> completed as a manual edit (only earned by the customer submitting a review)", () => {
+  it("blocks delivered -> completed/partial_completed as a manual edit (only earned by the customer submitting reviews)", () => {
     expect(canAdminTransition("delivered", "completed")).toBe(false);
+    expect(canAdminTransition("delivered", "partial_completed")).toBe(false);
+    expect(canAdminTransition("partial_completed", "completed")).toBe(false);
+  });
+
+  it("blocks every manual edit into/out of the return workflow (must go through request_return/review_return_request/mark_return_received)", () => {
+    expect(canAdminTransition("delivered", "return_initiated")).toBe(false);
+    expect(canAdminTransition("completed", "return_initiated")).toBe(false);
+    expect(canAdminTransition("return_initiated", "return_processing")).toBe(false);
+    expect(canAdminTransition("return_initiated", "delivered")).toBe(false);
+    expect(canAdminTransition("return_processing", "returned")).toBe(false);
   });
 
   it("still rejects structurally-invalid transitions for admin too", () => {
@@ -105,8 +140,15 @@ describe("adminNextStatuses", () => {
     expect(adminNextStatuses("unconfirmed")).toEqual(["cancelled"]);
   });
 
-  it("only offers 'returned' from delivered — 'completed' is earned by a customer review, never a manual admin edit", () => {
-    expect(adminNextStatuses("delivered")).toEqual(["returned"]);
+  it("offers nothing from delivered — completion is earned by customer reviews and returns are customer-initiated, never a manual admin edit", () => {
+    expect(adminNextStatuses("delivered")).toEqual([]);
+  });
+
+  it("offers nothing from the review-completion or return-workflow states either — all of them require the dedicated flow", () => {
+    expect(adminNextStatuses("partial_completed")).toEqual([]);
+    expect(adminNextStatuses("completed")).toEqual([]);
+    expect(adminNextStatuses("return_initiated")).toEqual([]);
+    expect(adminNextStatuses("return_processing")).toEqual([]);
   });
 
   it("is empty for terminal states", () => {

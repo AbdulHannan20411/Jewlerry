@@ -7,9 +7,11 @@ import { requireAdmin } from "@/lib/permissions";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getOrderById } from "@/lib/orders/queries";
 import { getPaymentsForOrder } from "@/lib/payments/queries";
+import { getReturnRequestsForOrder } from "@/lib/returns/queries";
 import { OrderStatusControl } from "@/components/admin/order-status-control";
 import { OrderTimeline } from "@/components/storefront/order-timeline";
 import { PaymentStatusBadge } from "@/components/shared/payment-status-badge";
+import { ReturnRequestStatusBadge } from "@/components/shared/return-request-status-badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -31,6 +33,7 @@ export default async function AdminOrderDetailPage({
   const order = await getOrderById(supabase, orderId);
   if (!order) notFound();
   const payments = await getPaymentsForOrder(supabase, order.id);
+  const returnRequests = await getReturnRequestsForOrder(supabase, order.id);
 
   return (
     <div className="max-w-4xl space-y-6">
@@ -155,14 +158,37 @@ export default async function AdminOrderDetailPage({
             </CardContent>
           </Card>
 
-          {(order.returnReason || order.cancelledReason) && (
+          {order.cancelledReason && (
             <Card>
               <CardHeader>
-                <CardTitle>{order.status === "cancelled" ? "Cancellation" : "Return"} details</CardTitle>
+                <CardTitle>Cancellation details</CardTitle>
               </CardHeader>
               <CardContent className="space-y-1 text-sm text-muted-foreground">
-                <p>{order.returnReason || order.cancelledReason}</p>
-                {order.returnNotes && <p>{order.returnNotes}</p>}
+                <p>{order.cancelledReason}</p>
+              </CardContent>
+            </Card>
+          )}
+
+          {returnRequests.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Return requests</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {returnRequests.map((request) => (
+                  <div key={request.id} className="flex items-center justify-between text-sm">
+                    <div>
+                      <p className="text-foreground">{request.title}</p>
+                      <p className="text-xs text-muted-foreground">Requested {formatDate(request.createdAt)}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <ReturnRequestStatusBadge status={request.status} />
+                      <Button asChild variant="ghost" size="sm">
+                        <Link href={`/admin/returns/${request.id}`}>Review</Link>
+                      </Button>
+                    </div>
+                  </div>
+                ))}
               </CardContent>
             </Card>
           )}

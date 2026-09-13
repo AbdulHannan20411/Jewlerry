@@ -152,6 +152,64 @@ export function paymentRejectedEmail(params: {
   return { subject, html };
 }
 
+export function returnRequestedEmail(params: { orderNumber: string; customerName: string; orderId: number }) {
+  const subject = `Return request received — ${params.orderNumber}`;
+  const html = layout(
+    "Return request submitted",
+    `<p>Hi ${escapeHtml(params.customerName)},</p>
+     <p>We've received your return request for order <strong>${escapeHtml(params.orderNumber)}</strong>
+     and it's now awaiting review. We'll email you as soon as it's been reviewed.</p>
+     ${button(siteUrl(`/account/orders/${params.orderId}`), "View your order")}`,
+  );
+  return { subject, html };
+}
+
+export function returnApprovedEmail(params: { orderNumber: string; customerName: string; orderId: number }) {
+  const subject = `Return approved — ${params.orderNumber}`;
+  const html = layout(
+    "Your return was approved",
+    `<p>Hi ${escapeHtml(params.customerName)},</p>
+     <p>Your return request for order <strong>${escapeHtml(params.orderNumber)}</strong> has been approved.
+     Please ship the item(s) back to us — we'll update your order once we receive them.</p>
+     ${button(siteUrl(`/account/orders/${params.orderId}`), "View your order")}`,
+  );
+  return { subject, html };
+}
+
+export function returnRejectedEmail(params: {
+  orderNumber: string;
+  customerName: string;
+  reason: string;
+  orderId: number;
+}) {
+  const subject = `Return request declined — ${params.orderNumber}`;
+  const html = layout(
+    "We couldn't approve your return request",
+    `<p>Hi ${escapeHtml(params.customerName)},</p>
+     <p>We weren't able to approve your return request for order <strong>${escapeHtml(params.orderNumber)}</strong>.</p>
+     <p><strong>Reason:</strong> ${escapeHtml(params.reason)}</p>
+     <p>If you believe this is a mistake, please contact us for help.</p>
+     ${button(siteUrl(`/account/orders/${params.orderId}`), "View your order")}`,
+  );
+  return { subject, html };
+}
+
+export function newReturnRequestAdminAlertEmail(params: {
+  orderNumber: string;
+  customerName: string;
+  title: string;
+  returnRequestId: number;
+}) {
+  const subject = `New return request — ${params.orderNumber}`;
+  const html = layout(
+    "New return request",
+    `<p>${escapeHtml(params.customerName)} requested a return for order
+     <strong>${escapeHtml(params.orderNumber)}</strong>: "${escapeHtml(params.title)}".</p>
+     ${button(siteUrl(`/admin/returns/${params.returnRequestId}`), "Review return request")}`,
+  );
+  return { subject, html };
+}
+
 export function newOrderAdminAlertEmail(params: {
   orderNumber: string;
   customerName: string;

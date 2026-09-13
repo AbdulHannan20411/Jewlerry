@@ -40,37 +40,56 @@ export async function submitReviewAction(input: ReviewFormInput): Promise<Action
   if (!result.ok) return actionError(result.error);
 
   // Rule: an order only ever reaches "completed" once the customer has
-  // actually reviewed it — never as a bare admin status edit (see the
-  // `delivered` entry in transitions.ts's ADMIN_EXCLUDED). A review can
-  // only be submitted for a delivered/completed order in the first place
-  // (validate_review_eligibility, migration 0006), so "delivered" here
-  // means this is the review that earns the completion.
+  // reviewed every product in it — never as a bare admin status edit (see
+  // the `delivered`/`partial_completed` entries in transitions.ts's
+  // ADMIN_EXCLUDED). A review can only be submitted for a delivered/
+  // partial_completed/completed order in the first place
+  // (validate_review_eligibility, migration 0019), so "delivered" or
+  // "partial_completed" here means this review moves that progress along.
+  // An order with only one product skips partial_completed entirely and
+  // goes straight from delivered to completed, same as before.
   const order = await getOrderById(supabase, parsed.data.orderId);
-  if (order && order.status === "delivered") {
-    const admin = createAdminSupabaseClient();
-    const statusResult = await changeOrderStatusRpc(admin, {
-      orderId: order.id,
-      newStatus: "completed",
-      changedBy: profile.id,
-      reason: "Automatically completed after customer review",
-    });
-    if (statusResult.ok) {
-      await notifyOrderStatusChanged(admin, {
+  if (order && (order.status === "delivered" || order.status === "partial_completed")) {
+    const totalProducts = new Set(
+      order.items.map((item) => item.productId).filter((id): id is number => id !== null),
+    ).size;
+    const { count: reviewedCount } = await supabase
+      .from("reviews")
+      .select("id", { count: "exact", head: true })
+      .eq("order_id", order.id)
+      .eq("customer_id", profile.id);
+
+    const newStatus = (reviewedCount ?? 0) >= totalProducts ? "completed" : "partial_completed";
+
+    if (newStatus !== order.status) {
+      const admin = createAdminSupabaseClient();
+      const statusResult = await changeOrderStatusRpc(admin, {
         orderId: order.id,
-        orderNumber: order.orderNumber,
-        customerId: order.customerId,
-        customerName: order.customerName,
-        customerEmail: order.customerEmail,
-        statusLabel: ORDER_STATUS_LABELS.completed,
+        newStatus,
+        changedBy: profile.id,
+        reason:
+          newStatus === "completed"
+            ? "Automatically completed — every product in the order has been reviewed"
+            : "Automatically marked partially completed — some products have been reviewed",
       });
-      await writeAuditLog({
-        actorId: profile.id,
-        action: "order.auto_completed_by_review",
-        entityType: "orders",
-        entityId: order.id,
-      });
-      revalidatePath("/admin/orders");
-      revalidatePath(`/admin/orders/${order.id}`);
+      if (statusResult.ok) {
+        await notifyOrderStatusChanged(admin, {
+          orderId: order.id,
+          orderNumber: order.orderNumber,
+          customerId: order.customerId,
+          customerName: order.customerName,
+          customerEmail: order.customerEmail,
+          statusLabel: ORDER_STATUS_LABELS[newStatus],
+        });
+        await writeAuditLog({
+          actorId: profile.id,
+          action: newStatus === "completed" ? "order.auto_completed_by_review" : "order.auto_partial_completed_by_review",
+          entityType: "orders",
+          entityId: order.id,
+        });
+        revalidatePath("/admin/orders");
+        revalidatePath(`/admin/orders/${order.id}`);
+      }
     }
   }
 

@@ -5,7 +5,17 @@ import type { Database, OrderStatusValue } from "@/types/database";
 // "Revenue" only counts orders where payment has actually been
 // confirmed at some point — unconfirmed/payment_pending/cancelled orders
 // never decremented real money, so they're excluded everywhere below.
-const REVENUE_STATUSES: OrderStatusValue[] = ["confirmed", "in_process", "delivered", "completed"];
+// A return in progress (return_initiated/return_processing) still counts
+// until it's actually completed (`returned`), at which point it drops out.
+const REVENUE_STATUSES: OrderStatusValue[] = [
+  "confirmed",
+  "in_process",
+  "delivered",
+  "partial_completed",
+  "completed",
+  "return_initiated",
+  "return_processing",
+];
 
 export interface RevenuePoint {
   date: string; // YYYY-MM-DD

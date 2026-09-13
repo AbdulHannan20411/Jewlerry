@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { PAYMENT_REJECTION_REASONS } from "@/constants";
+import { PAYMENT_REJECTION_REASONS, MAX_RETURN_PROOF_IMAGES } from "@/constants";
 
 /** bigint identity PKs (everything except profile-linked uuid fields). */
 const id = () => z.number().int().positive();
@@ -50,10 +50,30 @@ export type ReviewPaymentInput = z.infer<typeof reviewPaymentSchema>;
 
 export const requestReturnSchema = z.object({
   orderId: id(),
-  reason: z.string().trim().min(3, "Tell us why you'd like to return this order").max(500),
-  notes: z.string().trim().max(1000).optional(),
+  title: z.string().trim().min(3, "Give this return a short title").max(200),
+  reason: z.string().trim().min(10, "Tell us why you'd like to return this order").max(1000),
+  // Proof photos are validated separately (file type/size, one-per-file) in
+  // lib/validations/products.ts's image-upload pattern, reused here — this
+  // just bounds how many.
+  imageCount: z
+    .number()
+    .int()
+    .min(1, "Attach at least one photo as proof")
+    .max(MAX_RETURN_PROOF_IMAGES, `You can attach up to ${MAX_RETURN_PROOF_IMAGES} photos`),
 });
 export type RequestReturnInput = z.infer<typeof requestReturnSchema>;
+
+export const reviewReturnRequestSchema = z
+  .object({
+    requestId: id(),
+    decision: z.enum(["approved", "rejected"]),
+    adminReason: z.string().trim().max(500).optional(),
+  })
+  .refine((data) => data.decision === "approved" || !!data.adminReason, {
+    message: "Give a reason for rejecting this return",
+    path: ["adminReason"],
+  });
+export type ReviewReturnRequestInput = z.infer<typeof reviewReturnRequestSchema>;
 
 export const updateOrderStatusSchema = z.object({
   orderId: id(),
@@ -63,7 +83,10 @@ export const updateOrderStatusSchema = z.object({
     "confirmed",
     "in_process",
     "delivered",
+    "partial_completed",
     "completed",
+    "return_initiated",
+    "return_processing",
     "returned",
     "cancelled",
   ]),

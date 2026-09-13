@@ -41,7 +41,10 @@ export const ORDER_STATUS = {
   CONFIRMED: "confirmed",
   IN_PROCESS: "in_process",
   DELIVERED: "delivered",
+  PARTIAL_COMPLETED: "partial_completed",
   COMPLETED: "completed",
+  RETURN_INITIATED: "return_initiated",
+  RETURN_PROCESSING: "return_processing",
   RETURNED: "returned",
   CANCELLED: "cancelled",
 } as const;
@@ -51,7 +54,10 @@ export type OrderStatus = (typeof ORDER_STATUS)[keyof typeof ORDER_STATUS];
  * Valid server-side order status transitions. Anything not listed here is
  * rejected by lib/orders/transitions.ts regardless of who requests it.
  * `cancelled` is reachable from any pre-delivery state (a customer or admin
- * may cancel before the order ships).
+ * may cancel before the order ships). `return_initiated`'s targets are
+ * either the approval step (return_processing) or a revert back to
+ * whichever of delivered/partial_completed/completed the order was in
+ * before the return was requested — see orders.pre_return_status.
  */
 export const ORDER_STATUS_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   unconfirmed: [ORDER_STATUS.PAYMENT_PENDING, ORDER_STATUS.CANCELLED],
@@ -62,8 +68,16 @@ export const ORDER_STATUS_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   ],
   confirmed: [ORDER_STATUS.IN_PROCESS, ORDER_STATUS.CANCELLED],
   in_process: [ORDER_STATUS.DELIVERED, ORDER_STATUS.CANCELLED],
-  delivered: [ORDER_STATUS.COMPLETED, ORDER_STATUS.RETURNED],
-  completed: [ORDER_STATUS.RETURNED],
+  delivered: [ORDER_STATUS.COMPLETED, ORDER_STATUS.PARTIAL_COMPLETED, ORDER_STATUS.RETURN_INITIATED],
+  partial_completed: [ORDER_STATUS.COMPLETED, ORDER_STATUS.RETURN_INITIATED],
+  completed: [ORDER_STATUS.RETURN_INITIATED],
+  return_initiated: [
+    ORDER_STATUS.RETURN_PROCESSING,
+    ORDER_STATUS.DELIVERED,
+    ORDER_STATUS.PARTIAL_COMPLETED,
+    ORDER_STATUS.COMPLETED,
+  ],
+  return_processing: [ORDER_STATUS.RETURNED],
   returned: [],
   cancelled: [],
 };
@@ -75,7 +89,10 @@ export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
   confirmed: "Confirmed",
   in_process: "Processing",
   delivered: "Delivered",
+  partial_completed: "Partially Completed",
   completed: "Completed",
+  return_initiated: "Return Initiated",
+  return_processing: "Return Processing",
   returned: "Returned",
   cancelled: "Cancelled",
 };
@@ -92,8 +109,11 @@ export const ORDER_STATUS_DESCRIPTIONS: Record<OrderStatus, string> = {
   confirmed: "Payment has been approved. The order is confirmed and will be prepared next.",
   in_process: "The order is being prepared/packed for shipment.",
   delivered: "The order has been delivered to the customer.",
-  completed: "The order is fully complete — the customer has reviewed their purchase.",
-  returned: "The customer requested (or admin processed) a return for this order.",
+  partial_completed: "The customer has reviewed some, but not all, of the products in this order.",
+  completed: "The order is fully complete — the customer has reviewed every product in it.",
+  return_initiated: "The customer requested a return with proof and a reason; it's awaiting admin review.",
+  return_processing: "The return was approved. The customer is shipping the item(s) back.",
+  returned: "The returned item(s) have been received back and the return is complete.",
   cancelled: "The order was cancelled before it shipped.",
 };
 
@@ -138,9 +158,13 @@ export const CURRENCY = {
 export const STORAGE_BUCKETS = {
   PRODUCT_IMAGES: "product-images",
   PAYMENT_PROOFS: "payment-proofs",
+  RETURN_PROOFS: "return-proofs",
   AVATARS: "avatars",
   BANNERS: "banners",
 } as const;
+
+/** Return requests need at least one photo, and no more than this many. */
+export const MAX_RETURN_PROOF_IMAGES = 5;
 
 export const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
 export const ALLOWED_IMAGE_MIME_TYPES = [

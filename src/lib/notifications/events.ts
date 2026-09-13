@@ -11,6 +11,10 @@ import {
   newOrderAdminAlertEmail,
   newPaymentAdminAlertEmail,
   newContactMessageAdminAlertEmail,
+  returnRequestedEmail,
+  returnApprovedEmail,
+  returnRejectedEmail,
+  newReturnRequestAdminAlertEmail,
   accountBlockedEmail,
 } from "@/lib/email/templates";
 import { createNotification, createNotificationsForUsers, getAdminRecipients } from "@/lib/notifications/mutations";
@@ -185,6 +189,82 @@ export async function notifyContactMessageReceived(
       },
     ),
     ...admins.map((a) => sendEmail({ to: a.email, subject: adminEmail.subject, html: adminEmail.html })),
+  ]);
+}
+
+export async function notifyReturnRequested(
+  supabase: SupabaseClient<Database>,
+  params: {
+    returnRequestId: number;
+    orderId: number;
+    orderNumber: string;
+    customerId: string;
+    customerName: string;
+    customerEmail: string;
+    title: string;
+  },
+): Promise<void> {
+  const { subject, html } = returnRequestedEmail(params);
+  const admins = await getAdminRecipients(supabase);
+  const adminEmail = newReturnRequestAdminAlertEmail(params);
+
+  await Promise.all([
+    createNotification(supabase, {
+      userId: params.customerId,
+      title: "Return request submitted",
+      message: `Your return request for order ${params.orderNumber} is awaiting review.`,
+      type: "order",
+    }),
+    sendEmail({ to: params.customerEmail, subject, html }),
+    createNotificationsForUsers(
+      supabase,
+      admins.map((a) => a.id),
+      {
+        title: "New return request",
+        message: `${params.customerName} requested a return for order ${params.orderNumber}: "${params.title}".`,
+        type: "order",
+      },
+    ),
+    ...admins.map((a) => sendEmail({ to: a.email, subject: adminEmail.subject, html: adminEmail.html })),
+  ]);
+}
+
+export async function notifyReturnApproved(
+  supabase: SupabaseClient<Database>,
+  params: { orderId: number; orderNumber: string; customerId: string; customerName: string; customerEmail: string },
+): Promise<void> {
+  const { subject, html } = returnApprovedEmail(params);
+  await Promise.all([
+    createNotification(supabase, {
+      userId: params.customerId,
+      title: "Return approved",
+      message: `Your return request for order ${params.orderNumber} was approved. Please ship the item(s) back.`,
+      type: "order",
+    }),
+    sendEmail({ to: params.customerEmail, subject, html }),
+  ]);
+}
+
+export async function notifyReturnRejected(
+  supabase: SupabaseClient<Database>,
+  params: {
+    orderId: number;
+    orderNumber: string;
+    customerId: string;
+    customerName: string;
+    customerEmail: string;
+    reason: string;
+  },
+): Promise<void> {
+  const { subject, html } = returnRejectedEmail(params);
+  await Promise.all([
+    createNotification(supabase, {
+      userId: params.customerId,
+      title: "Return request declined",
+      message: `Your return request for order ${params.orderNumber} was declined: ${params.reason}.`,
+      type: "order",
+    }),
+    sendEmail({ to: params.customerEmail, subject, html }),
   ]);
 }
 

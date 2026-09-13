@@ -7,10 +7,12 @@ import { requireUser } from "@/lib/permissions";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getOrderById } from "@/lib/orders/queries";
 import { getPaymentsForOrder } from "@/lib/payments/queries";
+import { getReturnRequestsForOrder } from "@/lib/returns/queries";
 import { getReviewForOrderItem } from "@/lib/reviews/queries";
 import { canCustomerTransition } from "@/lib/orders/transitions";
 import { OrderStatusBadge } from "@/components/shared/order-status-badge";
 import { PaymentStatusBadge } from "@/components/shared/payment-status-badge";
+import { ReturnRequestStatusBadge } from "@/components/shared/return-request-status-badge";
 import { OrderTimeline } from "@/components/storefront/order-timeline";
 import { CancelOrderButton, RequestReturnButton } from "@/components/storefront/order-actions";
 import { ReviewFormDialog } from "@/components/storefront/review-form-dialog";
@@ -36,9 +38,9 @@ export default async function AccountOrderDetailPage({
   if (!order) notFound();
 
   const canCancel = canCustomerTransition(order.status, "cancelled");
-  const canReturn = canCustomerTransition(order.status, "returned");
+  const canReturn = canCustomerTransition(order.status, "return_initiated");
 
-  const canReview = ["delivered", "completed"].includes(order.status);
+  const canReview = ["delivered", "partial_completed", "completed"].includes(order.status);
   const itemReviews = canReview
     ? await Promise.all(
         order.items.map((item) =>
@@ -50,6 +52,8 @@ export default async function AccountOrderDetailPage({
     : [];
 
   const payments = await getPaymentsForOrder(supabase, order.id);
+  const returnRequests = await getReturnRequestsForOrder(supabase, order.id);
+  const latestReturnRequest = returnRequests[0] ?? null;
   const latestPayment = payments[0] ?? null;
   const canSubmitPayment =
     ["unconfirmed", "payment_pending"].includes(order.status) &&
@@ -195,14 +199,39 @@ export default async function AccountOrderDetailPage({
             </CardContent>
           </Card>
 
-          {(order.returnReason || order.cancelledReason) && (
+          {order.cancelledReason && (
             <Card>
               <CardHeader>
-                <CardTitle>{order.status === "cancelled" ? "Cancellation" : "Return"} details</CardTitle>
+                <CardTitle>Cancellation details</CardTitle>
               </CardHeader>
               <CardContent className="space-y-1 text-sm text-muted-foreground">
-                <p>{order.returnReason || order.cancelledReason}</p>
-                {order.returnNotes && <p>{order.returnNotes}</p>}
+                <p>{order.cancelledReason}</p>
+              </CardContent>
+            </Card>
+          )}
+
+          {latestReturnRequest && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Return request</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2 text-sm">
+                <div className="flex items-center justify-between">
+                  <p className="font-medium text-foreground">{latestReturnRequest.title}</p>
+                  <ReturnRequestStatusBadge status={latestReturnRequest.status} />
+                </div>
+                <p className="text-muted-foreground">{latestReturnRequest.reason}</p>
+                {latestReturnRequest.status === "rejected" && latestReturnRequest.adminDecisionReason && (
+                  <p className="text-destructive">Rejected: {latestReturnRequest.adminDecisionReason}</p>
+                )}
+                {latestReturnRequest.status === "approved" && !latestReturnRequest.receivedAt && (
+                  <p className="text-muted-foreground">
+                    Approved — please ship the item(s) back to us. We&apos;ll update your order once received.
+                  </p>
+                )}
+                {latestReturnRequest.receivedAt && (
+                  <p className="text-muted-foreground">We&apos;ve received the returned item(s).</p>
+                )}
               </CardContent>
             </Card>
           )}

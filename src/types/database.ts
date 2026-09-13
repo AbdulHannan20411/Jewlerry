@@ -27,11 +27,15 @@ export type OrderStatusValue =
   | "confirmed"
   | "in_process"
   | "delivered"
+  | "partial_completed"
   | "completed"
+  | "return_initiated"
+  | "return_processing"
   | "returned"
   | "cancelled";
 
 export type PaymentStatusValue = "pending" | "approved" | "rejected";
+export type ReturnRequestStatusValue = "pending" | "approved" | "rejected";
 export type PaymentMethodType = "mobile_wallet" | "bank_transfer" | "other";
 export type NotificationTypeValue =
   | "order"
@@ -248,6 +252,10 @@ export interface Database {
           return_notes: string | null;
           returned_at: string | null;
           cancelled_reason: string | null;
+          // Snapshot of the status this order was in right before entering
+          // return_initiated — set by request_return, read by
+          // review_return_request to restore it precisely on rejection.
+          pre_return_status: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -373,6 +381,26 @@ export interface Database {
         };
         Insert: never; // only via submit_payment RPC
         Update: never; // only via review_payment RPC
+        Relationships: [];
+      };
+      return_requests: {
+        Row: {
+          id: number;
+          order_id: number;
+          customer_id: string;
+          title: string;
+          reason: string;
+          image_paths: string[];
+          status: ReturnRequestStatusValue;
+          admin_decision_reason: string | null;
+          decided_by: string | null;
+          decided_at: string | null;
+          received_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: never; // only via request_return RPC
+        Update: never; // only via review_return_request / mark_return_received RPCs
         Relationships: [];
       };
       notifications: {
@@ -505,6 +533,29 @@ export interface Database {
           p_rejection_note?: string | null;
         };
         Returns: Database["public"]["Tables"]["payments"]["Row"];
+      };
+      request_return: {
+        Args: {
+          p_order_id: number;
+          p_customer_id: string;
+          p_title: string;
+          p_reason: string;
+          p_image_paths: string[];
+        };
+        Returns: Database["public"]["Tables"]["return_requests"]["Row"];
+      };
+      review_return_request: {
+        Args: {
+          p_request_id: number;
+          p_new_status: "approved" | "rejected";
+          p_reviewer_id: string;
+          p_admin_reason?: string | null;
+        };
+        Returns: Database["public"]["Tables"]["return_requests"]["Row"];
+      };
+      mark_return_received: {
+        Args: { p_order_id: number; p_admin_id: string };
+        Returns: Database["public"]["Tables"]["orders"]["Row"];
       };
       anonymize_profile: {
         Args: { p_profile_id: string };

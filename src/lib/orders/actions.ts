@@ -9,8 +9,8 @@ import {
   friendlyCreateOrderError,
 } from "@/lib/orders/mutations";
 import { canCustomerTransition, canAdminTransition } from "@/lib/orders/transitions";
-import { checkoutSchema, requestReturnSchema, updateOrderStatusSchema } from "@/lib/validations/orders";
-import type { CheckoutInput, RequestReturnInput, UpdateOrderStatusInput } from "@/lib/validations/orders";
+import { checkoutSchema, updateOrderStatusSchema } from "@/lib/validations/orders";
+import type { CheckoutInput, UpdateOrderStatusInput } from "@/lib/validations/orders";
 import { requireUser, requireAdmin } from "@/lib/permissions";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
@@ -144,59 +144,6 @@ export async function cancelOrderAction(
   return actionOk(undefined);
 }
 
-/**
- * Customer-initiated return request on an eligible (delivered) order.
- * Directly transitions to `returned` — per spec, a formal approval
- * workflow can be layered on top of return_reason/return_notes/
- * returned_at later without a schema change.
- */
-export async function requestReturnAction(input: RequestReturnInput): Promise<ActionResult> {
-  const parsed = requestReturnSchema.safeParse(input);
-  if (!parsed.success) {
-    return actionError("Please fix the errors below.", parsed.error.flatten().fieldErrors);
-  }
-
-  const profile = await requireUser();
-  const supabase = await createServerSupabaseClient();
-  const order = await getOrderById(supabase, parsed.data.orderId);
-  if (!order) return actionError("Order not found.");
-  if (order.customerId !== profile.id) return actionError("You don't have access to this order.");
-  if (!canCustomerTransition(order.status, "returned")) {
-    return actionError("This order isn't eligible for a return request.");
-  }
-
-  const admin = createAdminSupabaseClient();
-  await admin
-    .from("orders")
-    .update({
-      return_reason: parsed.data.reason,
-      return_notes: parsed.data.notes ?? null,
-      returned_at: new Date().toISOString(),
-    })
-    .eq("id", parsed.data.orderId);
-
-  const result = await changeOrderStatusRpc(admin, {
-    orderId: parsed.data.orderId,
-    newStatus: "returned",
-    changedBy: profile.id,
-    reason: parsed.data.reason,
-  });
-  if (!result.ok) return actionError("Could not submit your return request.");
-
-  await notifyOrderStatusChanged(admin, {
-    orderId: parsed.data.orderId,
-    orderNumber: order.orderNumber,
-    customerId: order.customerId,
-    customerName: order.customerName,
-    customerEmail: order.customerEmail,
-    statusLabel: ORDER_STATUS_LABELS.returned,
-  });
-
-  revalidatePath(`/account/orders/${parsed.data.orderId}`);
-  revalidatePath("/admin/orders");
-  return actionOk(undefined);
-}
-
 /** Admin manual status change (dashboard order management). */
 export async function updateOrderStatusAction(
   input: UpdateOrderStatusInput,
@@ -225,15 +172,9 @@ export async function updateOrderStatusAction(
       .update({ cancelled_reason: parsed.data.reason })
       .eq("id", parsed.data.orderId);
   }
-  if (parsed.data.newStatus === "returned") {
-    await serviceClient
-      .from("orders")
-      .update({
-        return_reason: parsed.data.reason ?? "Marked returned by admin",
-        returned_at: new Date().toISOString(),
-      })
-      .eq("id", parsed.data.orderId);
-  }
+  // "returned" is no longer reachable here (ADMIN_EXCLUDED blocks it) —
+  // it only happens via markReturnReceivedAction, which also stamps the
+  // matching return_requests row.
 
   const result = await changeOrderStatusRpc(serviceClient, {
     orderId: parsed.data.orderId,

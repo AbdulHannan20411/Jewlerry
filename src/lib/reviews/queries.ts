@@ -91,8 +91,8 @@ export async function getMyReviewForProduct(
 
 /**
  * The order id to submit a *new* review against for this product — the
- * earliest delivered/completed order containing the product that the
- * customer hasn't already reviewed. Mirrors validate_review_eligibility's
+ * earliest delivered/partial_completed/completed order containing the
+ * product that the customer hasn't already reviewed. Mirrors validate_review_eligibility's
  * SQL trigger exactly, so the UI never offers a review the RPC would
  * reject (belt-and-suspenders: the trigger is still the real guarantee).
  */
@@ -107,7 +107,7 @@ export async function getEligibleReviewOrderId(
       .select("order_id, orders!inner(customer_id, status, created_at)")
       .eq("product_id", productId)
       .eq("orders.customer_id", customerId)
-      .in("orders.status", ["delivered", "completed"]),
+      .in("orders.status", ["delivered", "partial_completed", "completed"]),
     supabase.from("reviews").select("order_id").eq("customer_id", customerId).eq("product_id", productId),
   ]);
 

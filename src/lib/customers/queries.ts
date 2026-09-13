@@ -84,7 +84,19 @@ export async function getCustomerById(
       .eq("id", id)
       .eq("role", "customer")
       .maybeSingle(),
-    supabase.from("orders").select("total").eq("customer_id", id).in("status", ["confirmed", "in_process", "delivered", "completed"]),
+    supabase
+      .from("orders")
+      .select("total")
+      .eq("customer_id", id)
+      .in("status", [
+        "confirmed",
+        "in_process",
+        "delivered",
+        "partial_completed",
+        "completed",
+        "return_initiated",
+        "return_processing",
+      ]),
   ]);
 
   if (error || !profile) return null;
