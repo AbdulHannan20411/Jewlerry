@@ -10,7 +10,8 @@ import { ConfirmDeleteButton } from "@/components/admin/confirm-delete-button";
 import { StockBadge } from "@/components/shared/stock-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { formatCurrency, formatDate, formatDateTime } from "@/lib/utils";
 import { computeDiscount } from "@/lib/products/pricing";
 import { deleteProductAction } from "@/lib/products/actions";
 import type { ProductListItem } from "@/lib/products/queries";
@@ -91,6 +92,26 @@ export function ProductsTable({
         cell: ({ row }) => (
           <StockBadge quantity={row.original.quantity_in_stock} threshold={lowStockThreshold} />
         ),
+      },
+      {
+        id: "restocked",
+        header: "Restocked",
+        cell: ({ row }) => {
+          const { restock_count, last_restocked_at } = row.original;
+          if (restock_count === 0 || !last_restocked_at) {
+            return <span className="text-sm text-muted-foreground">Never</span>;
+          }
+          return (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Badge variant="secondary" className="cursor-default">
+                  Restocked ×{restock_count}
+                </Badge>
+              </TooltipTrigger>
+              <TooltipContent>Last restocked {formatDateTime(last_restocked_at)}</TooltipContent>
+            </Tooltip>
+          );
+        },
       },
       {
         id: "status",

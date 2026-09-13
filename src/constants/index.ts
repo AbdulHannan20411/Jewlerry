@@ -80,6 +80,23 @@ export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
   cancelled: "Cancelled",
 };
 
+/**
+ * Plain-language descriptions shown as a hover tooltip on every order
+ * status badge, both admin- and customer-facing (OrderStatusBadge is the
+ * one shared component both sides render) — so "what does 'Processing'
+ * actually mean" never has to be guessed from the label alone.
+ */
+export const ORDER_STATUS_DESCRIPTIONS: Record<OrderStatus, string> = {
+  unconfirmed: "The order has been placed, but payment hasn't been submitted or confirmed yet.",
+  payment_pending: "The customer submitted a payment proof and it's awaiting admin review.",
+  confirmed: "Payment has been approved. The order is confirmed and will be prepared next.",
+  in_process: "The order is being prepared/packed for shipment.",
+  delivered: "The order has been delivered to the customer.",
+  completed: "The order is fully complete — the customer has reviewed their purchase.",
+  returned: "The customer requested (or admin processed) a return for this order.",
+  cancelled: "The order was cancelled before it shipped.",
+};
+
 export const PAYMENT_STATUS = {
   PENDING: "pending",
   APPROVED: "approved",

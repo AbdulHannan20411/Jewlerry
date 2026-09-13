@@ -14,21 +14,12 @@ import {
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { updateOrderStatusAction } from "@/lib/orders/actions";
 import { adminNextStatuses } from "@/lib/orders/transitions";
 import { OrderStatusBadge } from "@/components/shared/order-status-badge";
+import { ORDER_STATUS_LABELS as STATUS_LABELS, ORDER_STATUS_DESCRIPTIONS } from "@/constants";
 import type { OrderStatusValue } from "@/types/database";
-
-const STATUS_LABELS: Record<OrderStatusValue, string> = {
-  unconfirmed: "Unconfirmed",
-  payment_pending: "Payment Pending",
-  confirmed: "Confirmed",
-  in_process: "Processing",
-  delivered: "Delivered",
-  completed: "Completed",
-  returned: "Returned",
-  cancelled: "Cancelled",
-};
 
 // Statuses whose transition benefits from (or requires) a reason.
 const REASON_RECOMMENDED: OrderStatusValue[] = ["cancelled", "returned"];
@@ -77,9 +68,14 @@ export function OrderStatusControl({
       <OrderStatusBadge status={currentStatus} />
       <span className="text-sm text-muted-foreground">Move to:</span>
       {nextStatuses.map((status) => (
-        <Button key={status} variant="outline" size="sm" onClick={() => openDialog(status)}>
-          {STATUS_LABELS[status]}
-        </Button>
+        <Tooltip key={status}>
+          <TooltipTrigger asChild>
+            <Button variant="outline" size="sm" onClick={() => openDialog(status)}>
+              {STATUS_LABELS[status]}
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>{ORDER_STATUS_DESCRIPTIONS[status]}</TooltipContent>
+        </Tooltip>
       ))}
 
       <Dialog open={open} onOpenChange={setOpen}>

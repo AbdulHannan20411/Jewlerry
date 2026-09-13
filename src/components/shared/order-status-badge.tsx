@@ -1,4 +1,8 @@
+"use client";
+
 import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { ORDER_STATUS_DESCRIPTIONS } from "@/constants";
 import type { OrderStatusValue } from "@/types/database";
 
 const CONFIG: Record<OrderStatusValue, { label: string; variant: "default" | "secondary" | "success" | "warning" | "destructive" | "outline" }> = {
@@ -12,7 +16,17 @@ const CONFIG: Record<OrderStatusValue, { label: string; variant: "default" | "se
   cancelled: { label: "Cancelled", variant: "destructive" },
 };
 
+/** Shared by both the admin and customer order pages, so the same hover explanation shows up everywhere a status is displayed. */
 export function OrderStatusBadge({ status }: { status: OrderStatusValue }) {
   const { label, variant } = CONFIG[status];
-  return <Badge variant={variant}>{label}</Badge>;
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Badge variant={variant} className="cursor-default">
+          {label}
+        </Badge>
+      </TooltipTrigger>
+      <TooltipContent>{ORDER_STATUS_DESCRIPTIONS[status]}</TooltipContent>
+    </Tooltip>
+  );
 }

@@ -58,6 +58,8 @@ export interface SearchProductsRow {
   created_at: string;
   updated_at: string;
   primary_image_url: string | null;
+  restock_count: number;
+  last_restocked_at: string | null;
   total_count: number;
 }
 
@@ -171,6 +173,8 @@ export interface Database {
           review_count: number;
           created_at: string;
           updated_at: string;
+          restock_count: number;
+          last_restocked_at: string | null;
         };
         Insert: Partial<Database["public"]["Tables"]["products"]["Row"]> & {
           name: string;
@@ -178,7 +182,11 @@ export interface Database {
           price_before_discount: number;
           price_after_discount: number;
         };
-        Update: Partial<Database["public"]["Tables"]["products"]["Row"]>;
+        // restock_count/last_restocked_at are trigger-owned (see migration
+        // 0018) — excluded here so application code can't even express an
+        // update that tries to set them; the trigger would silently
+        // override it anyway, but this keeps the type honest about it.
+        Update: Partial<Omit<Database["public"]["Tables"]["products"]["Row"], "restock_count" | "last_restocked_at">>;
         Relationships: [];
       };
       product_images: {

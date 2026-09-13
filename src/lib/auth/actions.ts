@@ -38,18 +38,25 @@ export async function signUpAction(input: SignUpInput): Promise<ActionResult> {
     return actionError("Too many sign-up attempts. Please try again later.");
   }
 
-  // Pre-check username availability with a friendly, specific error —
-  // the DB unique index is still the real guarantee against a race.
+  // Pre-check username/email/phone availability with friendly, specific,
+  // per-field errors — the DB's unique indexes (profiles_username_lower_idx/
+  // profiles_email_lower_idx/profiles_phone_idx) are still the real
+  // guarantee against a race between this check and the actual insert;
+  // this is just so a duplicate surfaces as a normal validation error
+  // instead of a raw constraint-violation failure.
   const admin = createAdminSupabaseClient();
-  const { data: existingUsername } = await admin
-    .from("profiles")
-    .select("id")
-    .ilike("username", username)
-    .maybeSingle();
-  if (existingUsername) {
-    return actionError("Please fix the errors below.", {
-      username: ["This username is already taken."],
-    });
+  const [{ data: existingUsername }, { data: existingEmail }, { data: existingPhone }] = await Promise.all([
+    admin.from("profiles").select("id").ilike("username", username).maybeSingle(),
+    admin.from("profiles").select("id").ilike("email", email).maybeSingle(),
+    admin.from("profiles").select("id").eq("phone", phone).maybeSingle(),
+  ]);
+
+  const fieldErrors: Record<string, string[]> = {};
+  if (existingUsername) fieldErrors.username = ["This username is already taken."];
+  if (existingEmail) fieldErrors.email = ["An account with this email already exists."];
+  if (existingPhone) fieldErrors.phone = ["An account with this phone number already exists."];
+  if (Object.keys(fieldErrors).length > 0) {
+    return actionError("Please fix the errors below.", fieldErrors);
   }
 
   const env = getClientEnv();
@@ -64,6 +71,9 @@ export async function signUpAction(input: SignUpInput): Promise<ActionResult> {
   });
 
   if (error) {
+    // Belt-and-suspenders: a race between the pre-check above and this
+    // call (or Supabase Auth's own duplicate-email detection) can still
+    // surface here.
     if (error.message.toLowerCase().includes("registered")) {
       return actionError("Please fix the errors below.", {
         email: ["An account with this email already exists."],
@@ -276,16 +286,16 @@ export async function updateProfileAction(
   const profile = await requireUser();
   const admin = createAdminSupabaseClient();
 
-  const { data: existingUsername } = await admin
-    .from("profiles")
-    .select("id")
-    .ilike("username", parsed.data.username)
-    .neq("id", profile.id)
-    .maybeSingle();
-  if (existingUsername) {
-    return actionError("Please fix the errors below.", {
-      username: ["This username is already taken."],
-    });
+  const [{ data: existingUsername }, { data: existingPhone }] = await Promise.all([
+    admin.from("profiles").select("id").ilike("username", parsed.data.username).neq("id", profile.id).maybeSingle(),
+    admin.from("profiles").select("id").eq("phone", parsed.data.phone).neq("id", profile.id).maybeSingle(),
+  ]);
+
+  const fieldErrors: Record<string, string[]> = {};
+  if (existingUsername) fieldErrors.username = ["This username is already taken."];
+  if (existingPhone) fieldErrors.phone = ["An account with this phone number already exists."];
+  if (Object.keys(fieldErrors).length > 0) {
+    return actionError("Please fix the errors below.", fieldErrors);
   }
 
   const supabase = await createServerSupabaseClient();
