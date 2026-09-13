@@ -28,19 +28,24 @@ export function canCustomerTransition(from: OrderStatus, to: OrderStatus): boole
 }
 
 /**
- * Transitions that must only ever happen as a side effect of an actual
- * payment record (submit_payment / review_payment), never as a bare
- * manual admin status edit:
+ * Transitions that must only ever happen as a side effect of something
+ * else, never as a bare manual admin status edit:
  *  - unconfirmed -> payment_pending happens when the customer submits
  *    proof; a manual admin toggle here would leave the order saying
  *    "payment pending" with no payment row for anyone to review.
  *  - payment_pending -> confirmed/unconfirmed happens when admin reviews
  *    that proof (approve/reject) — which also records who reviewed it
  *    and why, a trail a bare status edit would skip entirely.
+ *  - delivered -> completed happens automatically when the customer
+ *    submits a review for the order (see notifyOrderCreated's sibling,
+ *    submitReviewAction in lib/reviews/actions.ts) — an admin manually
+ *    marking an order "completed" before the customer has actually
+ *    reviewed it defeats the point of gating the status on that signal.
  */
 const ADMIN_EXCLUDED: Partial<Record<OrderStatus, OrderStatus[]>> = {
   unconfirmed: ["payment_pending"],
   payment_pending: ["confirmed", "unconfirmed"],
+  delivered: ["completed"],
 };
 
 export function canAdminTransition(from: OrderStatus, to: OrderStatus): boolean {

@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import {
   LayoutDashboard,
   Package,
+  FolderTree,
   Tags,
   ShoppingCart,
   CreditCard,
@@ -22,11 +23,10 @@ import {
 import { signOutAction } from "@/lib/auth/actions";
 import { Button } from "@/components/ui/button";
 
-// Categories is deliberately not here (not in the spec's sidebar list) —
-// it's reachable from the Products page instead.
 const links = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/products", label: "Products", icon: Package },
+  { href: "/admin/categories", label: "Categories", icon: FolderTree },
   { href: "/admin/tags", label: "Tags", icon: Tags },
   { href: "/admin/orders", label: "Orders", icon: ShoppingCart },
   { href: "/admin/payments", label: "Payments", icon: CreditCard },

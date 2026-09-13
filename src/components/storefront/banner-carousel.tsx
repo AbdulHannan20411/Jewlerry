@@ -15,11 +15,20 @@ export function BannerCarousel({ banners }: { banners: Banner[] }) {
   const [index, setIndex] = React.useState(0);
   const count = banners.length;
 
+  // Depends on `index`, not just `count`, so every manual navigation
+  // (arrow or dot click) restarts the 6s countdown from that moment —
+  // otherwise a manual click just before the timer's next tick could be
+  // immediately overridden by an auto-advance a moment later, making the
+  // click feel like it did nothing (or skipped an extra slide).
   React.useEffect(() => {
     if (count <= 1) return;
     const timer = setInterval(() => setIndex((i) => (i + 1) % count), 6000);
     return () => clearInterval(timer);
-  }, [count]);
+  }, [count, index]);
+
+  function goTo(next: number) {
+    setIndex(((next % count) + count) % count);
+  }
 
   if (count === 0) return null;
   const banner = banners[index]!;
@@ -59,7 +68,7 @@ export function BannerCarousel({ banners }: { banners: Banner[] }) {
             variant="secondary"
             size="icon"
             className="absolute top-1/2 left-3 -translate-y-1/2 opacity-90"
-            onClick={() => setIndex((i) => (i - 1 + count) % count)}
+            onClick={() => goTo(index - 1)}
             aria-label="Previous slide"
           >
             <ChevronLeft className="size-4" />
@@ -69,7 +78,7 @@ export function BannerCarousel({ banners }: { banners: Banner[] }) {
             variant="secondary"
             size="icon"
             className="absolute top-1/2 right-3 -translate-y-1/2 opacity-90"
-            onClick={() => setIndex((i) => (i + 1) % count)}
+            onClick={() => goTo(index + 1)}
             aria-label="Next slide"
           >
             <ChevronRight className="size-4" />
@@ -79,7 +88,7 @@ export function BannerCarousel({ banners }: { banners: Banner[] }) {
               <button
                 key={b.id}
                 type="button"
-                onClick={() => setIndex(i)}
+                onClick={() => goTo(i)}
                 aria-label={`Go to slide ${i + 1}`}
                 aria-current={i === index}
                 className={cn(

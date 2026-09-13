@@ -84,8 +84,11 @@ describe("canAdminTransition", () => {
   it("allows the operational transitions", () => {
     expect(canAdminTransition("confirmed", "in_process")).toBe(true);
     expect(canAdminTransition("in_process", "delivered")).toBe(true);
-    expect(canAdminTransition("delivered", "completed")).toBe(true);
     expect(canAdminTransition("delivered", "returned")).toBe(true);
+  });
+
+  it("blocks delivered -> completed as a manual edit (only earned by the customer submitting a review)", () => {
+    expect(canAdminTransition("delivered", "completed")).toBe(false);
   });
 
   it("still rejects structurally-invalid transitions for admin too", () => {
@@ -102,8 +105,8 @@ describe("adminNextStatuses", () => {
     expect(adminNextStatuses("unconfirmed")).toEqual(["cancelled"]);
   });
 
-  it("lists both delivered exits", () => {
-    expect(adminNextStatuses("delivered").sort()).toEqual(["completed", "returned"]);
+  it("only offers 'returned' from delivered — 'completed' is earned by a customer review, never a manual admin edit", () => {
+    expect(adminNextStatuses("delivered")).toEqual(["returned"]);
   });
 
   it("is empty for terminal states", () => {
