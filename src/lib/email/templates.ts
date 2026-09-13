@@ -187,6 +187,24 @@ export function newPaymentAdminAlertEmail(params: {
   return { subject, html };
 }
 
+export function newContactMessageAdminAlertEmail(params: {
+  name: string;
+  email: string;
+  subject: string | null;
+  message: string;
+}) {
+  const subject = `New contact message${params.subject ? ` — ${params.subject}` : ""}`;
+  const html = layout(
+    "New contact message",
+    `<p><strong>${escapeHtml(params.name)}</strong> (${escapeHtml(params.email)}) sent a message${
+      params.subject ? ` about "${escapeHtml(params.subject)}"` : ""
+    }:</p>
+     <p style="white-space:pre-wrap;background:#f2ece0;padding:12px 16px;border-radius:4px;">${escapeHtml(params.message)}</p>
+     ${button(siteUrl("/admin/contact"), "View in admin")}`,
+  );
+  return { subject, html };
+}
+
 export function accountBlockedEmail(params: { reason: string }) {
   const subject = "Your account has been suspended";
   const html = layout(

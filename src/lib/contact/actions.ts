@@ -6,6 +6,7 @@ import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { requireAdmin } from "@/lib/permissions";
 import { markContactMessageRead, deleteContactMessage } from "@/lib/contact/mutations";
+import { notifyContactMessageReceived } from "@/lib/notifications/events";
 import { enforceRateLimit, getRequestIp } from "@/lib/auth/rate-limit";
 import { writeAuditLog } from "@/lib/audit";
 import { actionOk, actionError, type ActionResult } from "@/lib/action-result";
@@ -39,6 +40,13 @@ export async function submitContactMessageAction(
     console.error("[submitContactMessageAction] insert failed:", error);
     return actionError("Could not send your message. Please try again.");
   }
+
+  await notifyContactMessageReceived(admin, {
+    name: parsed.data.name,
+    email: parsed.data.email,
+    subject: parsed.data.subject || null,
+    message: parsed.data.message,
+  });
 
   return actionOk(undefined);
 }

@@ -10,6 +10,7 @@ import {
   paymentRejectedEmail,
   newOrderAdminAlertEmail,
   newPaymentAdminAlertEmail,
+  newContactMessageAdminAlertEmail,
   accountBlockedEmail,
 } from "@/lib/email/templates";
 import { createNotification, createNotificationsForUsers, getAdminRecipients } from "@/lib/notifications/mutations";
@@ -163,6 +164,27 @@ export async function notifyCustomerBlocked(
       type: "system",
     }),
     sendEmail({ to: params.customerEmail, subject, html }),
+  ]);
+}
+
+export async function notifyContactMessageReceived(
+  supabase: SupabaseClient<Database>,
+  params: { name: string; email: string; subject: string | null; message: string },
+): Promise<void> {
+  const admins = await getAdminRecipients(supabase);
+  const adminEmail = newContactMessageAdminAlertEmail(params);
+
+  await Promise.all([
+    createNotificationsForUsers(
+      supabase,
+      admins.map((a) => a.id),
+      {
+        title: "New contact message",
+        message: `${params.name} sent a message${params.subject ? `: "${params.subject}"` : ""}.`,
+        type: "system",
+      },
+    ),
+    ...admins.map((a) => sendEmail({ to: a.email, subject: adminEmail.subject, html: adminEmail.html })),
   ]);
 }
 
