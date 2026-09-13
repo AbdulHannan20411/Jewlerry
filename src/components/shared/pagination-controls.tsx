@@ -24,12 +24,14 @@ export function PaginationControls({
     return `${pathname}?${params.toString()}` as Route;
   }
 
-  if (pageCount <= 1) return null;
+  // Always shown, even for a single page — the record count and current
+  // page are useful on their own, not just as a page-to-page navigation aid.
+  const displayPageCount = Math.max(1, pageCount);
 
   return (
     <div className="flex flex-col items-center justify-between gap-3 border-t border-border pt-4 sm:flex-row">
       <p className="text-sm text-muted-foreground">
-        Page {page} of {pageCount} &middot; {totalCount.toLocaleString()} total
+        Page {page} of {displayPageCount} &middot; {totalCount.toLocaleString()} total
       </p>
       <div className="flex gap-2">
         {page <= 1 ? (
@@ -43,7 +45,7 @@ export function PaginationControls({
             </Link>
           </Button>
         )}
-        {page >= pageCount ? (
+        {page >= displayPageCount ? (
           <Button variant="outline" size="sm" disabled>
             Next <ChevronRight className="size-4" />
           </Button>

@@ -124,7 +124,7 @@ export const NOTIFICATION_TYPE = {
 export type NotificationType =
   (typeof NOTIFICATION_TYPE)[keyof typeof NOTIFICATION_TYPE];
 
-export const DEFAULT_PAGE_SIZE = 20;
+export const DEFAULT_PAGE_SIZE = 10;
 export const MAX_PAGE_SIZE = 100;
 
 /** Fallback shipping cost (in the store's base currency unit), overridable via admin_settings. */
