@@ -2,27 +2,36 @@ import { z } from "zod";
 import { MAX_IMAGE_SIZE_BYTES, ALLOWED_IMAGE_MIME_TYPES } from "@/constants";
 
 // The category <Select> works in strings (Radix requirement) and reports
-// null for "no category" — coerce the non-null case only, since
+// null when nothing is picked yet — coerce the non-null case only, since
 // z.coerce.number() on null/undefined/"" would otherwise (wrongly) coerce
-// to 0 and match before a plain z.null() branch gets a chance to.
-const nullableId = z.preprocess(
-  (v) => (v === null || v === undefined || v === "" ? null : Number(v)),
-  z.number().int().positive().nullable(),
+// to 0 and match before validation ever sees a missing selection.
+const requiredCategoryId = z.preprocess(
+  (v) => (v === null || v === undefined || v === "" ? undefined : Number(v)),
+  z.number({ error: "Please select a category" }).int().positive(),
 );
 
 export const productFormSchema = z
   .object({
     name: z.string().trim().min(2, "Name is required").max(200),
-    description: z.string().trim().max(5000).default(""),
-    categoryId: nullableId.optional(),
+    description: z
+      .string()
+      .trim()
+      .min(10, "Description must be at least 10 characters")
+      .max(5000, "Description is too long"),
+    categoryId: requiredCategoryId,
     priceBeforeDiscount: z.coerce
       .number()
-      .min(0, "Price must be 0 or more"),
-    priceAfterDiscount: z.coerce.number().min(0, "Price must be 0 or more"),
+      .positive("Price must be greater than 0")
+      .max(10_000_000, "Price seems unrealistically high"),
+    priceAfterDiscount: z.coerce
+      .number()
+      .positive("Price must be greater than 0")
+      .max(10_000_000, "Price seems unrealistically high"),
     quantityInStock: z.coerce
       .number()
       .int("Stock must be a whole number")
-      .min(0, "Stock cannot be negative"),
+      .min(0, "Stock cannot be negative")
+      .max(100_000, "Stock quantity seems unrealistically high"),
     isActive: z.boolean().default(true),
     tagIds: z.array(z.number().int().positive()).default([]),
   })

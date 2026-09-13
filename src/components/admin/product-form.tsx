@@ -26,7 +26,11 @@ export function ProductForm({
 }: {
   mode: "create" | "edit";
   productId?: number;
-  defaultValues: ProductFormInput;
+  // Raw/pre-parse shape, not the parsed output — an existing product
+  // saved before category selection was made mandatory may still have a
+  // null category_id, and the edit form must be able to load it (the admin
+  // is then required to pick one before the update can be saved).
+  defaultValues: ProductFormRawInput;
   categories: { id: number; name: string }[];
   tags: { id: number; name: string }[];
 }) {
@@ -90,7 +94,8 @@ export function ProductForm({
             label="Price before discount"
             type="number"
             step="0.01"
-            min="0"
+            min="0.01"
+            max="10000000"
             register={register("priceBeforeDiscount")}
             error={errors.priceBeforeDiscount}
           />
@@ -98,7 +103,8 @@ export function ProductForm({
             label="Price after discount"
             type="number"
             step="0.01"
-            min="0"
+            min="0.01"
+            max="10000000"
             register={register("priceAfterDiscount")}
             error={errors.priceAfterDiscount}
             description="Equal to the price above if there's no discount."
@@ -109,6 +115,7 @@ export function ProductForm({
           label="Quantity in stock"
           type="number"
           min="0"
+          max="100000"
           step="1"
           register={register("quantityInStock")}
           error={errors.quantityInStock}
@@ -118,9 +125,9 @@ export function ProductForm({
           name="categoryId"
           control={control}
           label="Category"
+          error={errors.categoryId}
           options={categories.map((c) => ({ value: String(c.id), label: c.name }))}
-          allowEmpty
-          emptyLabel="No category"
+          placeholder="Select a category"
         />
 
         <TagMultiSelect
